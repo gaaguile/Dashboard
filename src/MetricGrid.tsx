@@ -1,4 +1,9 @@
-import { CSSProperties } from "react";
+import { CSSProperties, useState, useEffect } from "react";
+import {
+  getStockData,
+  getForexData,
+  getFEDMeetingDate,
+} from "./services/yfinance";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,77 +16,87 @@ interface Metric {
   trendDirection: TrendDirection;
   /** Override automatic color (e.g. "down" trend that is actually good, like latency) */
   trendSentiment?: "positive" | "negative" | "neutral";
+  /** Previous/last value to display in red (for comparison) */
+  lastValue?: string;
+  /** Hide trend label and icon */
+  hideTrend?: boolean;
+  /** Current price for price-tracking metrics */
+  currentPrice?: string;
+  /** Last price for price-tracking metrics */
+  lastPriceValue?: string;
 }
 
 // ── Sample data — replace with your real metrics ─────────────────────────────
 
 const SAMPLE_METRICS: Metric[] = [
   {
-    label: "Revenue",
-    value: "$482,300",
-    trendLabel: "4.2%",
-    trendDirection: "up",
-    trendSentiment: "positive",
+    label: "IVV Today Return",
+    value: "Loading...",
+    trendLabel: "Today",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
+    hideTrend: true,
   },
   {
-    label: "Active users",
-    value: "12,847",
-    trendLabel: "1.8%",
-    trendDirection: "up",
-    trendSentiment: "positive",
+    label: "USDCLP Today Return",
+    value: "Loading...",
+    trendLabel: "Today",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
+    hideTrend: true,
   },
   {
-    label: "Churn rate",
-    value: "2.4%",
-    trendLabel: "0.3%",
-    trendDirection: "down",
-    trendSentiment: "negative",
-  },
-  {
-    label: "Avg order value",
-    value: "$96.40",
-    trendLabel: "2.1%",
-    trendDirection: "up",
-    trendSentiment: "positive",
-  },
-  {
-    label: "Conversion rate",
-    value: "3.7%",
-    trendLabel: "0.0%",
+    label: "IVV 52W High",
+    value: "Loading...",
+    trendLabel: "All Time",
     trendDirection: "flat",
     trendSentiment: "neutral",
   },
   {
-    label: "New signups",
-    value: "1,204",
-    trendLabel: "6.5%",
-    trendDirection: "up",
-    trendSentiment: "positive",
+    label: "IVV 52W Gain",
+    value: "Loading...",
+    trendLabel: "From Low",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
   },
   {
-    label: "Support tickets",
-    value: "86",
-    trendLabel: "11%",
+    label: "USDCLP Current Rate",
+    value: "Loading...",
+    trendLabel: "Today",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
+  },
+  {
+    label: "Next FED Meeting",
+    value: "July 29th 2026 ",
+    trendLabel: "Pending",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
+  },
+  {
+    label: "Portfolio Performance Today",
+    value: "0.0%",
+    trendLabel: "0%",
     trendDirection: "up",
     trendSentiment: "negative",
   },
   {
-    label: "Uptime",
-    value: "99.98%",
+    label: "S&P 500 Index All Time High",
+    value: "10.0%",
     trendLabel: "SLA met",
     trendDirection: "flat",
     trendSentiment: "positive",
   },
   {
-    label: "API latency",
-    value: "142ms",
-    trendLabel: "8ms",
+    label: "S&P 500 Index in CLP All Time High",
+    value: "10%",
+    trendLabel: "0%",
     trendDirection: "down",
     trendSentiment: "positive",
   },
   {
-    label: "Error rate",
-    value: "0.12%",
+    label: "Pending to Target S&P500",
+    value: "5%%",
     trendLabel: "stable",
     trendDirection: "flat",
     trendSentiment: "neutral",
@@ -174,7 +189,6 @@ const S = {
   } satisfies CSSProperties,
 
   card: {
-    //background: "var(--surface-1)",
     background: "#87CEFA",
     borderRadius: "var(--radius)",
     padding: "1.5rem",
@@ -206,6 +220,27 @@ const S = {
     color: "#0f172a",
   } satisfies CSSProperties,
 
+  cardLastValue: {
+    fontSize: 14,
+    fontWeight: 600,
+    margin: "4px 0 0",
+    color: "#ef4444",
+  } satisfies CSSProperties,
+
+  cardPriceContainer: {
+    fontSize: 12,
+    margin: "8px 0 0",
+    display: "flex",
+    gap: "12px",
+    flexWrap: "wrap" as const,
+  } satisfies CSSProperties,
+
+  cardPrice: {
+    fontSize: 11,
+    color: "#64748b",
+    fontWeight: 500,
+  } satisfies CSSProperties,
+
   cardTrend: {
     fontSize: 13,
     margin: "10px 0 0",
@@ -226,14 +261,27 @@ function MetricCard({ metric }: { metric: Metric }): React.JSX.Element {
     <div style={S.card} data-metric-card>
       <p style={S.cardLabel}>{metric.label}</p>
       <p style={S.cardValue}>{metric.value}</p>
-      <p style={{ ...S.cardTrend, color: trendColor }}>
-        <i
-          className={`ti ${iconClass}`}
-          style={{ fontSize: 14 }}
-          aria-hidden="true"
-        />
-        {metric.trendLabel}
-      </p>
+      {metric.lastValue && <p style={S.cardLastValue}>{metric.lastValue}</p>}
+      {(metric.currentPrice || metric.lastPriceValue) && (
+        <div style={S.cardPriceContainer}>
+          {metric.currentPrice && (
+            <span style={S.cardPrice}>Now: {metric.currentPrice}</span>
+          )}
+          {metric.lastPriceValue && (
+            <span style={S.cardPrice}>Was: {metric.lastPriceValue}</span>
+          )}
+        </div>
+      )}
+      {!metric.hideTrend && (
+        <p style={{ ...S.cardTrend, color: trendColor }}>
+          <i
+            className={`ti ${iconClass}`}
+            style={{ fontSize: 14 }}
+            aria-hidden="true"
+          />
+          {metric.trendLabel}
+        </p>
+      )}
     </div>
   );
 }
@@ -248,11 +296,124 @@ interface MetricGridProps {
 }
 
 export default function MetricGrid({
-  metrics = SAMPLE_METRICS,
+  metrics: metricsProps = SAMPLE_METRICS,
   title = "Dashboard for Trading Strategies",
-  subtitle = "Last updated 5 minutes ago",
-  onRefresh,
+  subtitle = "Last updated just now",
+  onRefresh: onRefreshProp,
 }: MetricGridProps): React.JSX.Element {
+  const [metrics, setMetrics] = useState<Metric[]>(metricsProps);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMarketData = async () => {
+    setLoading(true);
+    try {
+      // Fetch IVV (S&P 500 ETF) data
+      const ivvData = await getStockData("IVV");
+      const ivvTodayReturn = ivvData.changePercent;
+      const ivv52wGain = ivvData.fiftyTwoWeekChangePercent;
+
+      // Fetch USDCLP forex data
+      const usdclpData = await getForexData("USDCLP=X");
+      const usdclpTodayReturn = usdclpData.changePercent;
+
+      // Update metrics with real data
+      const updatedMetrics = [...metrics]; // Use current metrics to preserve lastValue history
+      updatedMetrics[0] = {
+        ...updatedMetrics[0],
+        lastValue:
+          updatedMetrics[0].value === "Loading..."
+            ? undefined
+            : updatedMetrics[0].value,
+        lastPriceValue: updatedMetrics[0].currentPrice,
+        currentPrice: `$${ivvData.currentPrice.toFixed(2)}`,
+        value: `${ivvTodayReturn}%`,
+        trendLabel: `${ivvTodayReturn}%`,
+        trendDirection: parseFloat(ivvTodayReturn as any) >= 0 ? "up" : "down",
+        trendSentiment:
+          parseFloat(ivvTodayReturn as any) >= 0 ? "positive" : "negative",
+        hideTrend: true,
+      };
+
+      updatedMetrics[1] = {
+        ...updatedMetrics[1],
+        lastValue:
+          updatedMetrics[1].value === "Loading..."
+            ? undefined
+            : updatedMetrics[1].value,
+        lastPriceValue: updatedMetrics[1].currentPrice,
+        currentPrice: `$${usdclpData.lastPrice.toFixed(2)}`,
+        value: `${usdclpTodayReturn}%`,
+        trendLabel: `${usdclpTodayReturn}%`,
+        trendDirection:
+          parseFloat(usdclpTodayReturn as any) >= 0 ? "up" : "down",
+        trendSentiment:
+          parseFloat(usdclpTodayReturn as any) >= 0 ? "positive" : "negative",
+        hideTrend: true,
+      };
+
+      updatedMetrics[2] = {
+        ...updatedMetrics[2],
+        value: `$${ivvData.fiftyTwoWeekHigh.toFixed(2)}`,
+        trendLabel: "52W High",
+      };
+
+      updatedMetrics[3] = {
+        ...updatedMetrics[3],
+        value: `${ivv52wGain}%`,
+        trendLabel: `From $${ivvData.fiftyTwoWeekLow.toFixed(2)}`,
+        trendDirection: parseFloat(ivv52wGain as any) >= 0 ? "up" : "down",
+        trendSentiment: "positive",
+      };
+
+      updatedMetrics[4] = {
+        ...updatedMetrics[4],
+        value: `$${usdclpData.lastPrice.toFixed(2)}`,
+        trendLabel: "Today",
+      };
+
+      // Fetch next FED meeting date
+      try {
+        const fedMeetingData = await getFEDMeetingDate();
+        updatedMetrics[5] = {
+          ...updatedMetrics[5],
+          value: fedMeetingData.formattedDate,
+          trendLabel: `${fedMeetingData.daysUntil} days away`,
+          trendDirection:
+            fedMeetingData.daysUntil <= 7
+              ? "up"
+              : fedMeetingData.daysUntil <= 30
+                ? "flat"
+                : "down",
+          trendSentiment: "neutral",
+        };
+      } catch (fedError) {
+        console.error("Error fetching FED meeting date:", fedError);
+        // Keep the default "TBD" value
+      }
+
+      updatedMetrics[6] = {
+        ...updatedMetrics[6],
+        value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpTodayReturn / 100) - 1) * 100).toFixed(4)}%`,
+        trendLabel: "TEST",
+      };
+      setMetrics(updatedMetrics);
+    } catch (error) {
+      console.error("Error fetching market data:", error);
+      // Keep the loading state but show error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketData();
+  }, []);
+
+  const handleRefresh = () => {
+    fetchMarketData();
+    if (onRefreshProp) onRefreshProp();
+  };
+
   return (
     <div>
       <div style={S.header}>
@@ -260,16 +421,14 @@ export default function MetricGrid({
           <p style={S.title}>{title}</p>
           <p style={S.subtitle}>{subtitle}</p>
         </div>
-        {onRefresh && (
-          <button onClick={onRefresh} style={S.refreshBtn} data-refresh-btn>
-            <i
-              className="ti ti-refresh"
-              style={{ fontSize: 16 }}
-              aria-hidden="true"
-            />
-            Refresh
-          </button>
-        )}
+        <button onClick={handleRefresh} style={S.refreshBtn} data-refresh-btn>
+          <i
+            className="ti ti-refresh"
+            style={{ fontSize: 16 }}
+            aria-hidden="true"
+          />
+          Refresh
+        </button>
       </div>
 
       <div style={S.grid}>

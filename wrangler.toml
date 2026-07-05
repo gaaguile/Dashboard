@@ -1,0 +1,24 @@
+name = "dashboard"
+compatibility_date = "2024-12-16"
+
+[build]
+command = "npm install && npm run build"
+cwd = "."
+watch_paths = ["src/**/*.ts", "src/**/*.tsx"]
+
+[env.production]
+name = "dashboard-api-prod"
+routes = [
+  { pattern = "api.example.com/api/*", zone_name = "example.com" }
+]
+
+[env.staging]
+name = "dashboard-api-staging"
+routes = [
+  { pattern = "staging-api.example.com/api/*", zone_name = "example.com" }
+]
+
+# Enable observability for production debugging
+[observability]
+enabled = true
+head_sampling_rate = 1.0

@@ -1,0 +1,10 @@
+{
+  "build": {
+    "command": "npm run build",
+    "cwd": "/",
+    "watch_paths": ["src/**/*.tsx", "src/**/*.ts"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}
