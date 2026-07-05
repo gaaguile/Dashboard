@@ -128,53 +128,91 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "1.25rem",
+    marginBottom: "2rem",
+    paddingBottom: "1.5rem",
+    borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
   } satisfies CSSProperties,
 
-  title: { fontSize: 18, fontWeight: 500, margin: 0 } satisfies CSSProperties,
+  title: {
+    fontSize: 32,
+    fontWeight: 700,
+    margin: 0,
+    background: "linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    backgroundClip: "text",
+  } satisfies CSSProperties,
 
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: "var(--text-secondary)",
-    margin: "2px 0 0",
+    margin: "6px 0 0",
+    fontWeight: 500,
   } satisfies CSSProperties,
 
   refreshBtn: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
+    padding: "0.65rem 1.25rem",
+    background:
+      "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
+    color: "white",
+    border: "none",
+    borderRadius: "var(--radius)",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    boxShadow: "0 4px 15px rgba(99, 102, 241, 0.3)",
   } satisfies CSSProperties,
 
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: 12,
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: 16,
   } satisfies CSSProperties,
 
   card: {
-    background: "var(--surface-1)",
+    //background: "var(--surface-1)",
+    background: "#87CEFA",
     borderRadius: "var(--radius)",
-    padding: "1rem",
+    padding: "1.5rem",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
+    border: "1px solid rgba(255, 255, 255, 0.6)",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    cursor: "pointer",
+    position: "relative" as const,
+    overflow: "hidden" as const,
   } satisfies CSSProperties,
 
   cardLabel: {
-    fontSize: 13,
-    color: "var(--text-secondary)",
-    margin: "0 0 6px",
+    fontSize: 12,
+    background:
+      "linear-gradient(135deg, var(--primary) 0%, var(--accent-cyan) 100%)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    backgroundClip: "text",
+    margin: "0 0 10px",
+    fontWeight: 600,
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.05em",
   } satisfies CSSProperties,
 
   cardValue: {
-    fontSize: 24,
-    fontWeight: 500,
+    fontSize: 28,
+    fontWeight: 700,
     margin: 0,
+    color: "#0f172a",
   } satisfies CSSProperties,
 
   cardTrend: {
-    fontSize: 12,
-    margin: "6px 0 0",
+    fontSize: 13,
+    margin: "10px 0 0",
     display: "flex",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
+    fontWeight: 600,
   } satisfies CSSProperties,
 };
 
@@ -185,7 +223,7 @@ function MetricCard({ metric }: { metric: Metric }): React.JSX.Element {
   const iconClass = trendIconClass(metric.trendDirection);
 
   return (
-    <div style={S.card}>
+    <div style={S.card} data-metric-card>
       <p style={S.cardLabel}>{metric.label}</p>
       <p style={S.cardValue}>{metric.value}</p>
       <p style={{ ...S.cardTrend, color: trendColor }}>
@@ -211,7 +249,7 @@ interface MetricGridProps {
 
 export default function MetricGrid({
   metrics = SAMPLE_METRICS,
-  title = "Overview",
+  title = "Dashboard for Trading Strategies",
   subtitle = "Last updated 5 minutes ago",
   onRefresh,
 }: MetricGridProps): React.JSX.Element {
@@ -223,7 +261,7 @@ export default function MetricGrid({
           <p style={S.subtitle}>{subtitle}</p>
         </div>
         {onRefresh && (
-          <button onClick={onRefresh} style={S.refreshBtn}>
+          <button onClick={onRefresh} style={S.refreshBtn} data-refresh-btn>
             <i
               className="ti ti-refresh"
               style={{ fontSize: 16 }}
