@@ -25,7 +25,13 @@ export async function onRequest(context) {
 
   try {
     const response = await fetch(
-      `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=price`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`,
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; DashboardBot/1.0; +https://dashboard-bc6.pages.dev)",
+        },
+      },
     );
 
     if (!response.ok) {
@@ -39,9 +45,12 @@ export async function onRequest(context) {
     }
 
     const data = await response.json();
-    const price = data.quoteSummary?.result?.[0]?.price;
+    const resultNode = data.chart?.result?.[0];
+    const meta = resultNode?.meta;
+    const quote = resultNode?.indicators?.quote?.[0];
+    const closes = (quote?.close || []).filter((v) => typeof v === "number");
 
-    if (!price) {
+    if (!meta || closes.length === 0) {
       return new Response(
         JSON.stringify({ error: `No data found for ${symbol}` }),
         {
@@ -51,13 +60,20 @@ export async function onRequest(context) {
       );
     }
 
+    const currentPrice = closes[closes.length - 1];
+    const previousClose =
+      closes.length > 1 ? closes[closes.length - 2] : currentPrice;
+
+    const change = currentPrice - previousClose;
+    const changePercent = previousClose ? (change / previousClose) * 100 : 0;
+
     const result = {
-      symbol: price.symbol,
-      currentPrice: price.regularMarketPrice?.raw || 0,
-      change: price.regularMarketChange?.raw || 0,
-      changePercent: price.regularMarketChangePercent?.raw || 0,
-      fiftyTwoWeekHigh: price.fiftyTwoWeekHigh?.raw || 0,
-      fiftyTwoWeekLow: price.fiftyTwoWeekLow?.raw || 0,
+      symbol: meta.symbol || symbol,
+      currentPrice,
+      change,
+      changePercent,
+      fiftyTwoWeekHigh: Math.max(...closes),
+      fiftyTwoWeekLow: Math.min(...closes),
     };
 
     return new Response(JSON.stringify(result), {

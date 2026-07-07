@@ -468,8 +468,15 @@ export default function MetricGrid({
 
         const stockData = stockResult.value;
         const metricIndex = baseMetricsCount + index;
+        const baseMetric: Metric = updatedMetrics[metricIndex] ?? {
+          label: tickers[index]?.label ?? tickers[index]?.symbol ?? "Ticker",
+          value: "N/A",
+          trendLabel: "N/A",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
         updatedMetrics[metricIndex] = {
-          ...updatedMetrics[metricIndex],
+          ...baseMetric,
           value: `$${stockData.currentPrice.toFixed(2)}`,
           trendLabel: `${stockData.changePercent}%`,
           trendDirection:
@@ -484,7 +491,19 @@ export default function MetricGrid({
       setMetrics(updatedMetrics);
     } catch (error) {
       console.error("Error fetching market data:", error);
-      // Keep the loading state but show error
+      setMetrics((prev) =>
+        prev.map((metric) =>
+          metric.value === "Loading..."
+            ? {
+                ...metric,
+                value: "N/A",
+                trendLabel: "Unavailable",
+                trendDirection: "flat",
+                trendSentiment: "neutral",
+              }
+            : metric,
+        ),
+      );
     } finally {
       setLoading(false);
     }

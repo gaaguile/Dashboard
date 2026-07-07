@@ -8,9 +8,13 @@ export default function App() {
 
   // Check if user is already logged in on mount
   useEffect(() => {
-    const authToken = localStorage.getItem("dashboardAuth");
-    if (authToken === "true") {
-      setIsAuthenticated(true);
+    try {
+      const authToken = localStorage.getItem("dashboardAuth");
+      if (authToken === "true") {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error("Storage unavailable:", error);
     }
     setIsLoading(false);
   }, []);
@@ -20,7 +24,11 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("dashboardAuth");
+    try {
+      localStorage.removeItem("dashboardAuth");
+    } catch (error) {
+      console.error("Storage unavailable:", error);
+    }
     setIsAuthenticated(false);
   };
 
