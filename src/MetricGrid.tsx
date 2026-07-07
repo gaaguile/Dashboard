@@ -31,11 +31,6 @@ interface Ticker {
   label: string;
 }
 
-interface Ticker {
-  symbol: string;
-  label: string;
-}
-
 // ── Sample data — replace with your real metrics ─────────────────────────────
 
 const SAMPLE_METRICS: Metric[] = [
@@ -459,14 +454,19 @@ export default function MetricGrid({
         trendLabel: "TEST",
       };
 
-      // Fetch stocks from tickers array
+      // Fetch stocks from tickers array; do not fail all cards if one ticker fails
       const baseMetricsCount = 10; // Indices 0-9 are base metrics
-      const tickerDataArray = await Promise.all(
+      const tickerDataArray = await Promise.allSettled(
         tickers.map((ticker) => getStockData(ticker.symbol)),
       );
 
       // Update metrics for stock tickers (starting from index 10)
-      tickerDataArray.forEach((stockData, index) => {
+      tickerDataArray.forEach((stockResult, index) => {
+        if (stockResult.status !== "fulfilled") {
+          return;
+        }
+
+        const stockData = stockResult.value;
         const metricIndex = baseMetricsCount + index;
         updatedMetrics[metricIndex] = {
           ...updatedMetrics[metricIndex],
@@ -492,9 +492,7 @@ export default function MetricGrid({
 
   // Fetch market data when tickers are loaded
   useEffect(() => {
-    if (tickers.length > 0) {
-      fetchMarketData();
-    }
+    fetchMarketData();
   }, [tickers]);
 
   const handleRefresh = () => {

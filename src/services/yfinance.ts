@@ -1,17 +1,7 @@
 // Determine API base URL based on environment
 const getApiBase = () => {
-  if (typeof window !== "undefined") {
-    // Browser environment
-    const isDevelopment =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-    if (isDevelopment) {
-      return "http://localhost:3001/api";
-    }
-    // Production: use relative URL (same domain)
-    return "/api";
-  }
-  // Server-side (if needed)
+  // Use relative URL so Vite dev proxy can forward /api requests locally,
+  // and production keeps same-origin /api behavior.
   return "/api";
 };
 
@@ -30,7 +20,9 @@ interface StockData {
 
 export async function getStockData(symbol: string): Promise<StockData> {
   try {
-    const response = await fetch(`${API_BASE}/stock/${symbol}`);
+    const response = await fetch(
+      `${API_BASE}/stock?symbol=${encodeURIComponent(symbol)}`,
+    );
     if (!response.ok) throw new Error("Failed to fetch stock data");
 
     const data = await response.json();
@@ -59,7 +51,9 @@ export async function getForexData(
   symbol: string,
 ): Promise<{ change: number; changePercent: number; lastPrice: number }> {
   try {
-    const response = await fetch(`${API_BASE}/forex/${symbol}`);
+    const response = await fetch(
+      `${API_BASE}/forex?symbol=${encodeURIComponent(symbol)}`,
+    );
     if (!response.ok) throw new Error("Failed to fetch forex data");
 
     const data = await response.json();
