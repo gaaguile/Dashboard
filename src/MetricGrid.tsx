@@ -26,6 +26,16 @@ interface Metric {
   lastPriceValue?: string;
 }
 
+interface Ticker {
+  symbol: string;
+  label: string;
+}
+
+interface Ticker {
+  symbol: string;
+  label: string;
+}
+
 // ── Sample data — replace with your real metrics ─────────────────────────────
 
 const SAMPLE_METRICS: Metric[] = [
@@ -96,11 +106,12 @@ const SAMPLE_METRICS: Metric[] = [
   },
   {
     label: "Pending to Target S&P500",
-    value: "5%%",
+    value: "5%",
     trendLabel: "stable",
     trendDirection: "flat",
     trendSentiment: "neutral",
   },
+  // Stock ticker cards will be added dynamically from tickers.json
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -182,6 +193,28 @@ const S = {
     boxShadow: "0 4px 15px rgba(99, 102, 241, 0.3)",
   } satisfies CSSProperties,
 
+  buttonGroup: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+  } satisfies CSSProperties,
+
+  logoutBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "0.65rem 1.25rem",
+    background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+    color: "white",
+    border: "none",
+    borderRadius: "var(--radius)",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    boxShadow: "0 4px 15px rgba(239, 68, 68, 0.3)",
+  } satisfies CSSProperties,
+
   grid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
@@ -191,7 +224,7 @@ const S = {
   card: {
     background: "#87CEFA",
     borderRadius: "var(--radius)",
-    padding: "1.5rem",
+    padding: "1rem 1.5rem",
     boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
     border: "1px solid rgba(255, 255, 255, 0.6)",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -201,49 +234,49 @@ const S = {
   } satisfies CSSProperties,
 
   cardLabel: {
-    fontSize: 12,
+    fontSize: 14,
     background:
       "linear-gradient(135deg, var(--primary) 0%, var(--accent-cyan) 100%)",
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
     backgroundClip: "text",
-    margin: "0 0 10px",
+    margin: "0 0 12px",
     fontWeight: 600,
     textTransform: "uppercase" as const,
     letterSpacing: "0.05em",
   } satisfies CSSProperties,
 
   cardValue: {
-    fontSize: 28,
+    fontSize: 38,
     fontWeight: 700,
     margin: 0,
     color: "#0f172a",
   } satisfies CSSProperties,
 
   cardLastValue: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: 600,
-    margin: "4px 0 0",
+    margin: "6px 0 0",
     color: "#ef4444",
   } satisfies CSSProperties,
 
   cardPriceContainer: {
-    fontSize: 12,
-    margin: "8px 0 0",
+    fontSize: 14,
+    margin: "10px 0 0",
     display: "flex",
-    gap: "12px",
+    gap: "14px",
     flexWrap: "wrap" as const,
   } satisfies CSSProperties,
 
   cardPrice: {
-    fontSize: 11,
+    fontSize: 13,
     color: "#64748b",
     fontWeight: 500,
   } satisfies CSSProperties,
 
   cardTrend: {
-    fontSize: 13,
-    margin: "10px 0 0",
+    fontSize: 15,
+    margin: "12px 0 0",
     display: "flex",
     alignItems: "center",
     gap: 6,
@@ -293,6 +326,7 @@ interface MetricGridProps {
   title?: string;
   subtitle?: string;
   onRefresh?: () => void;
+  onLogout?: () => void;
 }
 
 export default function MetricGrid({
@@ -300,9 +334,37 @@ export default function MetricGrid({
   title = "Dashboard for Trading Strategies",
   subtitle = "Last updated just now",
   onRefresh: onRefreshProp,
+  onLogout: onLogoutProp,
 }: MetricGridProps): React.JSX.Element {
   const [metrics, setMetrics] = useState<Metric[]>(metricsProps);
+  const [tickers, setTickers] = useState<Ticker[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Load tickers from JSON file on component mount
+  useEffect(() => {
+    const loadTickers = async () => {
+      try {
+        const response = await fetch("/tickers.json");
+        const data = await response.json();
+        setTickers(data.tickers);
+
+        // Add ticker metrics to the base metrics
+        const baseMetrics = [...metricsProps];
+        const tickerMetrics = data.tickers.map((ticker: Ticker) => ({
+          label: ticker.label,
+          value: "Loading...",
+          trendLabel: "Today",
+          trendDirection: "flat" as TrendDirection,
+          trendSentiment: "neutral" as const,
+        }));
+        setMetrics([...baseMetrics, ...tickerMetrics]);
+      } catch (error) {
+        console.error("Error loading tickers:", error);
+        // Use base metrics if loading fails
+      }
+    };
+    loadTickers();
+  }, [metricsProps]);
 
   const fetchMarketData = async () => {
     setLoading(true);
@@ -396,6 +458,29 @@ export default function MetricGrid({
         value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpTodayReturn / 100) - 1) * 100).toFixed(4)}%`,
         trendLabel: "TEST",
       };
+
+      // Fetch stocks from tickers array
+      const baseMetricsCount = 10; // Indices 0-9 are base metrics
+      const tickerDataArray = await Promise.all(
+        tickers.map((ticker) => getStockData(ticker.symbol)),
+      );
+
+      // Update metrics for stock tickers (starting from index 10)
+      tickerDataArray.forEach((stockData, index) => {
+        const metricIndex = baseMetricsCount + index;
+        updatedMetrics[metricIndex] = {
+          ...updatedMetrics[metricIndex],
+          value: `$${stockData.currentPrice.toFixed(2)}`,
+          trendLabel: `${stockData.changePercent}%`,
+          trendDirection:
+            parseFloat(stockData.changePercent as any) >= 0 ? "up" : "down",
+          trendSentiment:
+            parseFloat(stockData.changePercent as any) >= 0
+              ? "positive"
+              : "negative",
+        };
+      });
+
       setMetrics(updatedMetrics);
     } catch (error) {
       console.error("Error fetching market data:", error);
@@ -405,9 +490,12 @@ export default function MetricGrid({
     }
   };
 
+  // Fetch market data when tickers are loaded
   useEffect(() => {
-    fetchMarketData();
-  }, []);
+    if (tickers.length > 0) {
+      fetchMarketData();
+    }
+  }, [tickers]);
 
   const handleRefresh = () => {
     fetchMarketData();
@@ -421,14 +509,26 @@ export default function MetricGrid({
           <p style={S.title}>{title}</p>
           <p style={S.subtitle}>{subtitle}</p>
         </div>
-        <button onClick={handleRefresh} style={S.refreshBtn} data-refresh-btn>
-          <i
-            className="ti ti-refresh"
-            style={{ fontSize: 16 }}
-            aria-hidden="true"
-          />
-          Refresh
-        </button>
+        <div style={S.buttonGroup}>
+          <button onClick={handleRefresh} style={S.refreshBtn} data-refresh-btn>
+            <i
+              className="ti ti-refresh"
+              style={{ fontSize: 16 }}
+              aria-hidden="true"
+            />
+            Refresh
+          </button>
+          {onLogoutProp && (
+            <button onClick={onLogoutProp} style={S.logoutBtn}>
+              <i
+                className="ti ti-logout"
+                style={{ fontSize: 16 }}
+                aria-hidden="true"
+              />
+              Logout
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={S.grid}>

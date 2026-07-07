@@ -1,0 +1,28 @@
+{
+  "tickers": [
+    {
+      "symbol": "FCX",
+      "label": "Copper Price (FCX)"
+    },
+    {
+      "symbol": "MSFT",
+      "label": "Microsoft (MSFT)"
+    },
+    {
+      "symbol": "SCCO",
+      "label": "Southern Copper (SCCO)"
+    },
+    {
+      "symbol": "CVX",
+      "label": "Chevron (CVX)"
+    },
+    {
+      "symbol": "META",
+      "label": "Meta (META)"
+    },
+    {
+      "symbol": "WMT",
+      "label": "Walmart (WMT)"
+    }
+  ]
+}
