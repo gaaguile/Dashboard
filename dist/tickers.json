@@ -2,15 +2,15 @@
   "tickers": [
     {
       "symbol": "FCX",
-      "label": "Copper Price (FCX)"
+      "label": "Freeport-McMoRan Inc. (FCX)"
     },
     {
       "symbol": "MSFT",
       "label": "Microsoft (MSFT)"
     },
     {
-      "symbol": "SCCO",
-      "label": "Southern Copper (SCCO)"
+      "symbol": "AAPL",
+      "label": "Apple Inc. (AAPL)"
     },
     {
       "symbol": "CVX",
