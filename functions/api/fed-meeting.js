@@ -25,6 +25,7 @@ export async function onRequest(context) {
     new Date(2025, 8, 17), // Sep 17, 2025
     new Date(2025, 10, 5), // Nov 5, 2025
     new Date(2025, 11, 17), // Dec 17, 2025
+    new Date(2026, 6, 29), // Jul 29, 2026
   ];
 
   function getNextFOMCDate() {

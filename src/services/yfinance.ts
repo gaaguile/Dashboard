@@ -7,6 +7,20 @@ const getApiBase = () => {
 
 const API_BASE = getApiBase();
 
+interface WeeklyNetReturnPoint {
+  date: string;
+  indexValue: number;
+  cumulativeReturnPct: number;
+  close: number;
+  netDividend: number;
+  fxRate?: number;
+}
+
+interface WeeklyNetReturnSeriesResponse {
+  pointsUsd: WeeklyNetReturnPoint[];
+  pointsClp: WeeklyNetReturnPoint[];
+}
+
 interface StockData {
   symbol: string;
   currentPrice: number;
@@ -86,3 +100,31 @@ export async function getFEDMeetingDate(): Promise<{
     throw error;
   }
 }
+
+export async function getIVVWeeklyNetTotalReturn(): Promise<WeeklyNetReturnSeriesResponse> {
+  return getETFWeeklyNetTotalReturn("IVV");
+}
+
+export async function getETFWeeklyNetTotalReturn(
+  symbol: string,
+): Promise<WeeklyNetReturnSeriesResponse> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/ivv-weekly-net-return?symbol=${encodeURIComponent(symbol)}`,
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${symbol} weekly net total return data`);
+    }
+
+    const data = await response.json();
+    return {
+      pointsUsd: Array.isArray(data.pointsUsd) ? data.pointsUsd : [],
+      pointsClp: Array.isArray(data.pointsClp) ? data.pointsClp : [],
+    };
+  } catch (error) {
+    console.error(`Error fetching ${symbol} weekly net total return:`, error);
+    throw error;
+  }
+}
+
+export type { WeeklyNetReturnPoint };

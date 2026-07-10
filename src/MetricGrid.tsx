@@ -3,7 +3,10 @@ import {
   getStockData,
   getForexData,
   getFEDMeetingDate,
+  getETFWeeklyNetTotalReturn,
+  type WeeklyNetReturnPoint,
 } from "./services/yfinance";
+// Add alerts to wrok on ly at Regular Market Hours: 9:30 - 16:00 ET (New York time) and not on weekends or holidays.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +32,11 @@ interface Metric {
 interface Ticker {
   symbol: string;
   label: string;
+}
+
+interface IVVChartPoint {
+  date: string;
+  cumulativeReturnPct: number;
 }
 
 // ── Sample data — replace with your real metrics ─────────────────────────────
@@ -277,6 +285,33 @@ const S = {
     gap: 6,
     fontWeight: 600,
   } satisfies CSSProperties,
+
+  chartWrap: {
+    marginTop: "2rem",
+    background: "rgba(135, 206, 250, 0.2)",
+    borderRadius: "var(--radius)",
+    padding: "1rem 1.25rem",
+    border: "1px solid rgba(255, 255, 255, 0.2)",
+  } satisfies CSSProperties,
+
+  chartTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#e2e8f0",
+  } satisfies CSSProperties,
+
+  chartSubtitle: {
+    margin: "4px 0 12px",
+    fontSize: 13,
+    color: "#cbd5e1",
+  } satisfies CSSProperties,
+
+  chartEmpty: {
+    margin: 0,
+    fontSize: 14,
+    color: "#cbd5e1",
+  } satisfies CSSProperties,
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -314,6 +349,257 @@ function MetricCard({ metric }: { metric: Metric }): React.JSX.Element {
   );
 }
 
+function NetReturnLineChart({
+  usdPoints,
+  clpPoints,
+}: {
+  usdPoints: IVVChartPoint[];
+  clpPoints: IVVChartPoint[];
+}): React.JSX.Element {
+  if (usdPoints.length < 2 && clpPoints.length < 2) {
+    return <p style={S.chartEmpty}>Not enough data to render chart.</p>;
+  }
+
+  const width = 960;
+  const height = 300;
+  const padX = 42;
+  const padY = 24;
+
+  const allPoints = [...usdPoints, ...clpPoints];
+  const minY = Math.min(...allPoints.map((p) => p.cumulativeReturnPct));
+  const maxY = Math.max(...allPoints.map((p) => p.cumulativeReturnPct));
+  const spanY = maxY - minY || 1;
+
+  const mapToXY = (points: IVVChartPoint[]) =>
+    points.map((p, i) => {
+      const x =
+        padX + (i / Math.max(points.length - 1, 1)) * (width - padX * 2);
+      const y =
+        height -
+        padY -
+        ((p.cumulativeReturnPct - minY) / spanY) * (height - padY * 2);
+      return { ...p, x, y };
+    });
+
+  const usdXY = mapToXY(usdPoints);
+  const clpXY = mapToXY(clpPoints);
+
+  const buildPath = (points: Array<IVVChartPoint & { x: number; y: number }>) =>
+    points
+      .map(
+        (p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`,
+      )
+      .join(" ");
+
+  const usdPath = buildPath(usdXY);
+  const clpPath = buildPath(clpXY);
+
+  const yTicks = 5;
+  const tickValues = Array.from(
+    { length: yTicks },
+    (_, i) => minY + (spanY * i) / (yTicks - 1),
+  );
+  const hasZeroReference = minY <= 0 && maxY >= 0;
+  const zeroY = height - padY - ((0 - minY) / spanY) * (height - padY * 2);
+
+  const axisStartDate = usdPoints[0]?.date || clpPoints[0]?.date || "";
+  const axisEndDate =
+    usdPoints[usdPoints.length - 1]?.date ||
+    clpPoints[clpPoints.length - 1]?.date ||
+    "";
+  const boundaryDateY = height - padY - 20;
+
+  const axisPoints =
+    usdPoints.length >= clpPoints.length ? usdPoints : clpPoints;
+  const yearlyJanuaryTicks = axisPoints
+    .map((p, i) => ({ point: p, index: i }))
+    .filter(({ point }) => {
+      const d = new Date(`${point.date}T00:00:00`);
+      return Number.isFinite(d.getTime()) && d.getMonth() === 0;
+    })
+    .map(({ point, index }) => {
+      const x =
+        padX +
+        (index / Math.max(axisPoints.length - 1, 1)) * (width - padX * 2);
+      const year = point.date.slice(0, 4);
+      return { x, year };
+    })
+    // Keep a small minimum spacing to avoid label overlap on short ranges.
+    .filter((tick, i, arr) => i === 0 || tick.x - arr[i - 1].x >= 28);
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          gap: 14,
+          alignItems: "center",
+          marginBottom: 8,
+          color: "#cbd5e1",
+          fontSize: 12,
+          fontWeight: 600,
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              width: 16,
+              height: 2,
+              background: "#22d3ee",
+              display: "inline-block",
+            }}
+          />
+          USD Net Return
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            style={{
+              width: 16,
+              height: 2,
+              background: "#f59e0b",
+              display: "inline-block",
+            }}
+          />
+          CLP Net Return
+        </span>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ width: "100%", height: "auto" }}
+      >
+        <rect x="0" y="0" width={width} height={height} fill="transparent" />
+
+        {tickValues.map((v, i) => {
+          const y = height - padY - ((v - minY) / spanY) * (height - padY * 2);
+          return (
+            <g key={`y-tick-${i}`}>
+              <line
+                x1={padX}
+                y1={y}
+                x2={width - padX}
+                y2={y}
+                stroke="rgba(203, 213, 225, 0.28)"
+                strokeWidth="1"
+              />
+              <text
+                x={padX - 8}
+                y={y + 4}
+                textAnchor="end"
+                fill="#cbd5e1"
+                fontSize="11"
+              >
+                {v.toFixed(0)}%
+              </text>
+            </g>
+          );
+        })}
+
+        {hasZeroReference && (
+          <g>
+            <line
+              x1={padX}
+              y1={zeroY}
+              x2={width - padX}
+              y2={zeroY}
+              stroke="rgba(34, 211, 238, 0.9)"
+              strokeWidth="1.5"
+              strokeDasharray="5 4"
+            />
+            <text
+              x={width - padX - 6}
+              y={zeroY - 6}
+              textAnchor="end"
+              fill="#67e8f9"
+              fontSize="11"
+              fontWeight="700"
+            >
+              0%
+            </text>
+          </g>
+        )}
+
+        <line
+          x1={padX}
+          y1={height - padY}
+          x2={width - padX}
+          y2={height - padY}
+          stroke="rgba(203, 213, 225, 0.5)"
+          strokeWidth="1"
+        />
+
+        {usdXY.length > 1 && (
+          <>
+            <path d={usdPath} fill="none" stroke="#22d3ee" strokeWidth="2.5" />
+            <circle
+              cx={usdXY[usdXY.length - 1].x}
+              cy={usdXY[usdXY.length - 1].y}
+              r="4"
+              fill="#22d3ee"
+            />
+          </>
+        )}
+
+        {clpXY.length > 1 && (
+          <>
+            <path d={clpPath} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
+            <circle
+              cx={clpXY[clpXY.length - 1].x}
+              cy={clpXY[clpXY.length - 1].y}
+              r="4"
+              fill="#f59e0b"
+            />
+          </>
+        )}
+
+        <text
+          x={padX}
+          y={boundaryDateY}
+          fill="#cbd5e1"
+          fontSize="11"
+          fontWeight="700"
+          textAnchor="start"
+        >
+          {axisStartDate}
+        </text>
+
+        {yearlyJanuaryTicks.map((tick) => (
+          <g key={`x-year-${tick.year}`}>
+            <line
+              x1={tick.x}
+              y1={height - padY}
+              x2={tick.x}
+              y2={height - padY + 5}
+              stroke="rgba(203, 213, 225, 0.55)"
+              strokeWidth="1"
+            />
+            <text
+              x={tick.x}
+              y={height - 6}
+              fill="#cbd5e1"
+              fontSize="10"
+              textAnchor="middle"
+            >
+              {tick.year}
+            </text>
+          </g>
+        ))}
+
+        <text
+          x={width - padX}
+          y={boundaryDateY}
+          fill="#cbd5e1"
+          fontSize="11"
+          fontWeight="700"
+          textAnchor="end"
+        >
+          {axisEndDate}
+        </text>
+      </svg>
+    </>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface MetricGridProps {
@@ -333,6 +619,18 @@ export default function MetricGrid({
 }: MetricGridProps): React.JSX.Element {
   const [metrics, setMetrics] = useState<Metric[]>(metricsProps);
   const [tickers, setTickers] = useState<Ticker[]>([]);
+  const [ivvWeeklyNetReturn, setIvvWeeklyNetReturn] = useState<IVVChartPoint[]>(
+    [],
+  );
+  const [ivvWeeklyNetReturnClp, setIvvWeeklyNetReturnClp] = useState<
+    IVVChartPoint[]
+  >([]);
+  const [iywWeeklyNetReturn, setIywWeeklyNetReturn] = useState<IVVChartPoint[]>(
+    [],
+  );
+  const [iywWeeklyNetReturnClp, setIywWeeklyNetReturnClp] = useState<
+    IVVChartPoint[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   // Load tickers from JSON file on component mount
@@ -509,15 +807,83 @@ export default function MetricGrid({
     }
   };
 
+  const fetchEtfWeeklyNetReturn = async (
+    symbol: string,
+    setUsd: React.Dispatch<React.SetStateAction<IVVChartPoint[]>>,
+    setClp: React.Dispatch<React.SetStateAction<IVVChartPoint[]>>,
+  ) => {
+    try {
+      const { pointsUsd, pointsClp } = await getETFWeeklyNetTotalReturn(symbol);
+      setUsd(
+        pointsUsd.map((p: WeeklyNetReturnPoint) => ({
+          date: p.date,
+          cumulativeReturnPct: p.cumulativeReturnPct,
+        })),
+      );
+      setClp(
+        pointsClp.map((p: WeeklyNetReturnPoint) => ({
+          date: p.date,
+          cumulativeReturnPct: p.cumulativeReturnPct,
+        })),
+      );
+    } catch (error) {
+      console.error(`Error fetching ${symbol} weekly net return chart:`, error);
+      setUsd([]);
+      setClp([]);
+    }
+  };
+
   // Fetch market data when tickers are loaded
   useEffect(() => {
     fetchMarketData();
+    fetchEtfWeeklyNetReturn(
+      "IVV",
+      setIvvWeeklyNetReturn,
+      setIvvWeeklyNetReturnClp,
+    );
+    fetchEtfWeeklyNetReturn(
+      "IYW",
+      setIywWeeklyNetReturn,
+      setIywWeeklyNetReturnClp,
+    );
   }, [tickers]);
 
   const handleRefresh = () => {
     fetchMarketData();
+    fetchEtfWeeklyNetReturn(
+      "IVV",
+      setIvvWeeklyNetReturn,
+      setIvvWeeklyNetReturnClp,
+    );
+    fetchEtfWeeklyNetReturn(
+      "IYW",
+      setIywWeeklyNetReturn,
+      setIywWeeklyNetReturnClp,
+    );
     if (onRefreshProp) onRefreshProp();
   };
+
+  const START_2023 = "2023-01-01";
+  const normalizeFromZero = (points: IVVChartPoint[]): IVVChartPoint[] => {
+    if (points.length === 0) return [];
+    const base = points[0].cumulativeReturnPct;
+    return points.map((p) => ({
+      ...p,
+      cumulativeReturnPct: p.cumulativeReturnPct - base,
+    }));
+  };
+  const ivvWeeklyNetReturnFrom2023 = normalizeFromZero(
+    ivvWeeklyNetReturn.filter((p) => p.date >= START_2023),
+  );
+  const ivvWeeklyNetReturnClpFrom2023 = normalizeFromZero(
+    ivvWeeklyNetReturnClp.filter((p) => p.date >= START_2023),
+  );
+  const iywWeeklyNetReturnFrom2023 = normalizeFromZero(
+    iywWeeklyNetReturn.filter((p) => p.date >= START_2023),
+  );
+  const iywWeeklyNetReturnClpFrom2023 = normalizeFromZero(
+    iywWeeklyNetReturnClp.filter((p) => p.date >= START_2023),
+  );
 
   return (
     <div>
@@ -552,6 +918,62 @@ export default function MetricGrid({
         {metrics.map((metric) => (
           <MetricCard key={metric.label} metric={metric} />
         ))}
+      </div>
+
+      <div style={S.chartWrap}>
+        <p style={S.chartTitle}>IVV Weekly Net Total Return (Since 2010)</p>
+        <p style={S.chartSubtitle}>
+          USD and CLP series shown together. Dividends are reinvested net of 15%
+          non-resident alien withholding tax (Chile investor assumption).
+        </p>
+        <NetReturnLineChart
+          usdPoints={ivvWeeklyNetReturn}
+          clpPoints={ivvWeeklyNetReturnClp}
+        />
+      </div>
+
+      <div style={S.chartWrap}>
+        <p style={S.chartTitle}>
+          IVV Weekly Net Total Return (From Jan 1, 2023)
+        </p>
+        <p style={S.chartSubtitle}>
+          Same USD and CLP net-return series from 2023-01-01, rebased to start
+          at 0%. <br />
+          Dividends are reinvested net of 15% non-resident alien withholding tax
+          (Chile investor assumption).
+        </p>
+        <NetReturnLineChart
+          usdPoints={ivvWeeklyNetReturnFrom2023}
+          clpPoints={ivvWeeklyNetReturnClpFrom2023}
+        />
+      </div>
+
+      <div style={S.chartWrap}>
+        <p style={S.chartTitle}>IYW Weekly Net Total Return (Since 2010)</p>
+        <p style={S.chartSubtitle}>
+          USD and CLP series shown together. Dividends are reinvested net of 15%
+          non-resident alien withholding tax (Chile investor assumption).
+        </p>
+        <NetReturnLineChart
+          usdPoints={iywWeeklyNetReturn}
+          clpPoints={iywWeeklyNetReturnClp}
+        />
+      </div>
+
+      <div style={S.chartWrap}>
+        <p style={S.chartTitle}>
+          IYW Weekly Net Total Return (From Jan 1, 2023)
+        </p>
+        <p style={S.chartSubtitle}>
+          Same USD and CLP net-return series from 2023-01-01, rebased to start
+          at 0%. <br />
+          Dividends are reinvested net of 15% non-resident alien withholding tax
+          (Chile investor assumption).
+        </p>
+        <NetReturnLineChart
+          usdPoints={iywWeeklyNetReturnFrom2023}
+          clpPoints={iywWeeklyNetReturnClpFrom2023}
+        />
       </div>
     </div>
   );
