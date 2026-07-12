@@ -1,6 +1,14 @@
 {
   "tickers": [
     {
+      "symbol": "IYW",
+      "label": "iShares U.S. Technology ETF (IYW)"
+    },
+    {
+      "symbol": "SPCX",
+      "label": "Space Exploration Technologies Corp (SPCX)"
+    },
+    {
       "symbol": "FCX",
       "label": "Freeport-McMoRan Inc. (FCX)"
     },
