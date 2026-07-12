@@ -413,6 +413,12 @@ function NetReturnLineChart({
 
   const usdPath = buildPath(usdXY);
   const clpPath = buildPath(clpXY);
+  const usdLastPoint = usdXY[usdXY.length - 1];
+  const clpLastPoint = clpXY[clpXY.length - 1];
+  const lastLabelsOverlap =
+    usdLastPoint && clpLastPoint
+      ? Math.abs(usdLastPoint.y - clpLastPoint.y) < 16
+      : false;
 
   const yTicks = 5;
   const tickValues = Array.from(
@@ -557,6 +563,16 @@ function NetReturnLineChart({
               r="4"
               fill="#22d3ee"
             />
+            <text
+              x={usdLastPoint.x - 8}
+              y={usdLastPoint.y + (lastLabelsOverlap ? -10 : -8)}
+              fill="#22d3ee"
+              fontSize="11"
+              fontWeight="700"
+              textAnchor="end"
+            >
+              USD {usdLastPoint.cumulativeReturnPct.toFixed(2)}%
+            </text>
           </>
         )}
 
@@ -569,6 +585,16 @@ function NetReturnLineChart({
               r="4"
               fill="#f59e0b"
             />
+            <text
+              x={clpLastPoint.x - 8}
+              y={clpLastPoint.y + (lastLabelsOverlap ? 14 : -8)}
+              fill="#f59e0b"
+              fontSize="11"
+              fontWeight="700"
+              textAnchor="end"
+            >
+              CLP {clpLastPoint.cumulativeReturnPct.toFixed(2)}%
+            </text>
           </>
         )}
 
@@ -889,7 +915,8 @@ export default function MetricGrid({
     const base = points[0].cumulativeReturnPct;
     return points.map((p) => ({
       ...p,
-      cumulativeReturnPct: p.cumulativeReturnPct - base,
+      cumulativeReturnPct:
+        ((1 + p.cumulativeReturnPct / 100) / (1 + base / 100) - 1) * 100,
     }));
   };
   const ivvWeeklyNetReturnFrom2023 = normalizeFromZero(
@@ -937,9 +964,15 @@ export default function MetricGrid({
   const ivvYtd = computePeriodReturn(ivvWeeklyNetReturn, ytdStart);
   const ivvMtd = computePeriodReturn(ivvWeeklyNetReturn, mtdStart);
   const ivvWtd = computePeriodReturn(ivvWeeklyNetReturn, wtdStart);
+  const ivvClpYtd = computePeriodReturn(ivvWeeklyNetReturnClp, ytdStart);
+  const ivvClpMtd = computePeriodReturn(ivvWeeklyNetReturnClp, mtdStart);
+  const ivvClpWtd = computePeriodReturn(ivvWeeklyNetReturnClp, wtdStart);
   const iywYtd = computePeriodReturn(iywWeeklyNetReturn, ytdStart);
   const iywMtd = computePeriodReturn(iywWeeklyNetReturn, mtdStart);
   const iywWtd = computePeriodReturn(iywWeeklyNetReturn, wtdStart);
+  const iywClpYtd = computePeriodReturn(iywWeeklyNetReturnClp, ytdStart);
+  const iywClpMtd = computePeriodReturn(iywWeeklyNetReturnClp, mtdStart);
+  const iywClpWtd = computePeriodReturn(iywWeeklyNetReturnClp, wtdStart);
 
   const formatReturn = (value: number | null): string => {
     if (value === null || Number.isNaN(value)) return "N/A";
@@ -991,6 +1024,15 @@ export default function MetricGrid({
           <span style={S.chartKpiBadge}>WTD: {formatReturn(ivvWtd)}</span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(ivvMtd)}</span>
           <span style={S.chartKpiBadge}>YTD: {formatReturn(ivvYtd)}</span>
+          <span style={S.chartKpiBadge}>
+            WTD USDCLP : {formatReturn(ivvClpWtd)}
+          </span>
+          <span style={S.chartKpiBadge}>
+            MTD USDCLP : {formatReturn(ivvClpMtd)}
+          </span>
+          <span style={S.chartKpiBadge}>
+            YTD USDCLP : {formatReturn(ivvClpYtd)}
+          </span>
         </div>
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturn}
@@ -1024,6 +1066,15 @@ export default function MetricGrid({
           <span style={S.chartKpiBadge}>WTD: {formatReturn(iywWtd)}</span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(iywMtd)}</span>
           <span style={S.chartKpiBadge}>YTD: {formatReturn(iywYtd)}</span>
+          <span style={S.chartKpiBadge}>
+            WTD USDCLP: {formatReturn(iywClpWtd)}
+          </span>
+          <span style={S.chartKpiBadge}>
+            MTD USDCLP: {formatReturn(iywClpMtd)}
+          </span>
+          <span style={S.chartKpiBadge}>
+            YTD USDCLP: {formatReturn(iywClpYtd)}
+          </span>
         </div>
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturn}
