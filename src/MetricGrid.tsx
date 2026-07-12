@@ -6,7 +6,6 @@ import {
   getETFWeeklyNetTotalReturn,
   type WeeklyNetReturnPoint,
 } from "./services/yfinance";
-// Add alerts to work only at Regular Market Hours: 9:30 - 16:00 ET (New York time) and not on weekends or holidays.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,14 +100,14 @@ const SAMPLE_METRICS: Metric[] = [
     trendSentiment: "positive",
   },
   {
-    label: "S&P 500 Index in CLP All Time High",
+    label: "Pending 1",
     value: "10%",
     trendLabel: "0%",
     trendDirection: "down",
     trendSentiment: "positive",
   },
   {
-    label: "Pending to Target S&P500",
+    label: "Pending 2",
     value: "5%",
     trendLabel: "stable",
     trendDirection: "flat",
@@ -658,7 +657,7 @@ interface MetricGridProps {
 
 export default function MetricGrid({
   metrics: metricsProps = SAMPLE_METRICS,
-  title = "Dashboard for Trading Strategies",
+  title = "Dashboard for Gabriel Tekken Trading Strategies",
   subtitle = "Last updated just now",
   onRefresh: onRefreshProp,
   onLogout: onLogoutProp,
@@ -795,6 +794,12 @@ export default function MetricGrid({
       updatedMetrics[6] = {
         ...updatedMetrics[6],
         value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpTodayReturn / 100) - 1) * 100).toFixed(4)}%`,
+        trendLabel: "TEST",
+      };
+
+      updatedMetrics[7] = {
+        ...updatedMetrics[7],
+        value: `${((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100).toFixed(4)}%`,
         trendLabel: "TEST",
       };
 
