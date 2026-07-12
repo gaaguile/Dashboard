@@ -989,8 +989,8 @@ export default function MetricGrid({
         </p>
         <div style={S.chartKpiRow}>
           <span style={S.chartKpiBadge}>WTD: {formatReturn(ivvWtd)}</span>
-          <span style={S.chartKpiBadge}>YTD: {formatReturn(ivvYtd)}</span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(ivvMtd)}</span>
+          <span style={S.chartKpiBadge}>YTD: {formatReturn(ivvYtd)}</span>
         </div>
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturn}
@@ -1022,8 +1022,8 @@ export default function MetricGrid({
         </p>
         <div style={S.chartKpiRow}>
           <span style={S.chartKpiBadge}>WTD: {formatReturn(iywWtd)}</span>
-          <span style={S.chartKpiBadge}>YTD: {formatReturn(iywYtd)}</span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(iywMtd)}</span>
+          <span style={S.chartKpiBadge}>YTD: {formatReturn(iywYtd)}</span>
         </div>
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturn}
