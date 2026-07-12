@@ -6,7 +6,7 @@ import {
   getETFWeeklyNetTotalReturn,
   type WeeklyNetReturnPoint,
 } from "./services/yfinance";
-// Add alerts to wrok on ly at Regular Market Hours: 9:30 - 16:00 ET (New York time) and not on weekends or holidays.
+// Add alerts to work only at Regular Market Hours: 9:30 - 16:00 ET (New York time) and not on weekends or holidays.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,6 +311,26 @@ const S = {
     margin: 0,
     fontSize: 14,
     color: "#cbd5e1",
+  } satisfies CSSProperties,
+
+  chartKpiRow: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap" as const,
+    marginBottom: 10,
+  } satisfies CSSProperties,
+
+  chartKpiBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 12,
+    color: "#e2e8f0",
+    background: "rgba(15, 23, 42, 0.35)",
+    border: "1px solid rgba(148, 163, 184, 0.35)",
+    borderRadius: 999,
+    padding: "4px 10px",
+    fontWeight: 600,
   } satisfies CSSProperties,
 };
 
@@ -885,6 +905,47 @@ export default function MetricGrid({
     iywWeeklyNetReturnClp.filter((p) => p.date >= START_2023),
   );
 
+  const computePeriodReturn = (
+    points: IVVChartPoint[],
+    periodStartDate: string,
+  ): number | null => {
+    if (points.length === 0) return null;
+    const periodStartPoint = points.find((p) => p.date >= periodStartDate);
+    if (!periodStartPoint) return null;
+
+    const latest = points[points.length - 1].cumulativeReturnPct;
+    const start = periodStartPoint.cumulativeReturnPct;
+    const latestFactor = 1 + latest / 100;
+    const startFactor = 1 + start / 100;
+    if (startFactor <= 0) return null;
+    return (latestFactor / startFactor - 1) * 100;
+  };
+
+  const nowNy = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
+  const formatDate = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  const ytdStart = `${nowNy.getFullYear()}-01-01`;
+  const mtdStart = `${nowNy.getFullYear()}-${String(nowNy.getMonth() + 1).padStart(2, "0")}-01`;
+  const weekStartNy = new Date(nowNy);
+  const daysSinceMonday = (weekStartNy.getDay() + 6) % 7;
+  weekStartNy.setDate(weekStartNy.getDate() - daysSinceMonday);
+  const wtdStart = formatDate(weekStartNy);
+
+  const ivvYtd = computePeriodReturn(ivvWeeklyNetReturn, ytdStart);
+  const ivvMtd = computePeriodReturn(ivvWeeklyNetReturn, mtdStart);
+  const ivvWtd = computePeriodReturn(ivvWeeklyNetReturn, wtdStart);
+  const iywYtd = computePeriodReturn(iywWeeklyNetReturn, ytdStart);
+  const iywMtd = computePeriodReturn(iywWeeklyNetReturn, mtdStart);
+  const iywWtd = computePeriodReturn(iywWeeklyNetReturn, wtdStart);
+
+  const formatReturn = (value: number | null): string => {
+    if (value === null || Number.isNaN(value)) return "N/A";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+  };
+
   return (
     <div>
       <div style={S.header}>
@@ -924,8 +985,13 @@ export default function MetricGrid({
         <p style={S.chartTitle}>IVV Weekly Net Total Return (Since 2010)</p>
         <p style={S.chartSubtitle}>
           USD and CLP series shown together. Dividends are reinvested net of 15%
-          non-resident alien withholding tax (Chile investor assumption).
+          non-resident alien withholding tax (for Chile investors).
         </p>
+        <div style={S.chartKpiRow}>
+          <span style={S.chartKpiBadge}>WTD: {formatReturn(ivvWtd)}</span>
+          <span style={S.chartKpiBadge}>YTD: {formatReturn(ivvYtd)}</span>
+          <span style={S.chartKpiBadge}>MTD: {formatReturn(ivvMtd)}</span>
+        </div>
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturn}
           clpPoints={ivvWeeklyNetReturnClp}
@@ -940,7 +1006,7 @@ export default function MetricGrid({
           Same USD and CLP net-return series from 2023-01-01, rebased to start
           at 0%. <br />
           Dividends are reinvested net of 15% non-resident alien withholding tax
-          (Chile investor assumption).
+          (for Chile investors).
         </p>
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturnFrom2023}
@@ -952,8 +1018,13 @@ export default function MetricGrid({
         <p style={S.chartTitle}>IYW Weekly Net Total Return (Since 2010)</p>
         <p style={S.chartSubtitle}>
           USD and CLP series shown together. Dividends are reinvested net of 15%
-          non-resident alien withholding tax (Chile investor assumption).
+          non-resident alien withholding tax (for Chile investors).
         </p>
+        <div style={S.chartKpiRow}>
+          <span style={S.chartKpiBadge}>WTD: {formatReturn(iywWtd)}</span>
+          <span style={S.chartKpiBadge}>YTD: {formatReturn(iywYtd)}</span>
+          <span style={S.chartKpiBadge}>MTD: {formatReturn(iywMtd)}</span>
+        </div>
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturn}
           clpPoints={iywWeeklyNetReturnClp}
@@ -968,7 +1039,7 @@ export default function MetricGrid({
           Same USD and CLP net-return series from 2023-01-01, rebased to start
           at 0%. <br />
           Dividends are reinvested net of 15% non-resident alien withholding tax
-          (Chile investor assumption).
+          (for Chile investors).
         </p>
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturnFrom2023}
