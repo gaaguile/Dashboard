@@ -3,6 +3,8 @@ import {
   getStockData,
   getForexData,
   getFEDMeetingDate,
+  getCurrentFedRate,
+  getIefDividendYield,
   getETFWeeklyNetTotalReturn,
   type WeeklyNetReturnPoint,
 } from "./services/yfinance";
@@ -100,16 +102,16 @@ const SAMPLE_METRICS: Metric[] = [
     trendSentiment: "positive",
   },
   {
-    label: "Pending 1",
-    value: "10%",
-    trendLabel: "0%",
-    trendDirection: "down",
-    trendSentiment: "positive",
+    label: "FED Rate",
+    value: "Loading...",
+    trendLabel: "Target range",
+    trendDirection: "flat",
+    trendSentiment: "neutral",
   },
   {
-    label: "Pending 2",
-    value: "5%",
-    trendLabel: "stable",
+    label: "IEF ETF Dividend Yield",
+    value: "Loading...",
+    trendLabel: "12m trailing yield",
     trendDirection: "flat",
     trendSentiment: "neutral",
   },
@@ -789,6 +791,32 @@ export default function MetricGrid({
       } catch (fedError) {
         console.error("Error fetching FED meeting date:", fedError);
         // Keep the default "TBD" value
+      }
+
+      try {
+        const fedRateData = await getCurrentFedRate();
+        updatedMetrics[8] = {
+          ...updatedMetrics[8],
+          value: fedRateData.currentRange,
+          trendLabel: fedRateData.label || "Target range",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
+      } catch (fedRateError) {
+        console.error("Error fetching Fed rate:", fedRateError);
+      }
+
+      try {
+        const iefYieldData = await getIefDividendYield();
+        updatedMetrics[9] = {
+          ...updatedMetrics[9],
+          value: iefYieldData.dividendYield,
+          trendLabel: iefYieldData.label || "12m trailing yield",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
+      } catch (iefYieldError) {
+        console.error("Error fetching IEF yield:", iefYieldError);
       }
 
       updatedMetrics[6] = {

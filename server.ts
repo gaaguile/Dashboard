@@ -16,6 +16,40 @@ function parseSymbol(req: express.Request): string | undefined {
   );
 }
 
+async function fetchTextWithUserAgent(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (compatible; DashboardBot/1.0; +http://localhost:3002)",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}`);
+  }
+
+  return response.text();
+}
+
+function extractFedTargetRange(html: string): string | null {
+  const yearSectionMatch = html.match(
+    /<h4>2025<\/h4>[\s\S]*?<tbody>\s*<tr>\s*<td class="bold stub" nowrap="nowrap" scope="row">[^<]+<\/td>\s*<td class="stub" nowrap="nowrap">\d+<\/td>\s*<td class="stub" nowrap="nowrap">\d+<\/td>\s*<td class="stub" nowrap="nowrap">([^<]+)<\/td>/i,
+  );
+  if (yearSectionMatch?.[1]) {
+    return `${yearSectionMatch[1]}%`;
+  }
+
+  const fallbackRange = html.match(/\b\d+(?:\.\d+)?-\d+(?:\.\d+)?\b/);
+  return fallbackRange ? `${fallbackRange[0]}%` : null;
+}
+
+function extractIefDividendYield(html: string): string | null {
+  const yieldMatch = html.match(
+    /twelveMonTrlYld&quot;:\{[\s\S]*?formattedValue&quot;:&quot;([^&]+)&quot;/i,
+  );
+  return yieldMatch ? yieldMatch[1] : null;
+}
+
 async function stockHandler(req: express.Request, res: express.Response) {
   try {
     const symbol = parseSymbol(req);
@@ -104,6 +138,52 @@ app.get("/api/fed-meeting", (_req, res) => {
     }),
     daysUntil,
   });
+});
+
+app.get("/api/fed-rate", async (_req, res) => {
+  try {
+    const html = await fetchTextWithUserAgent(
+      "https://www.federalreserve.gov/monetarypolicy/openmarket.htm",
+    );
+    const currentRange = extractFedTargetRange(html);
+
+    if (!currentRange) {
+      return res
+        .status(404)
+        .json({ error: "Failed to parse current Fed rate" });
+    }
+
+    res.json({
+      currentRange,
+      label: "Target range",
+    });
+  } catch (error) {
+    console.error("Error fetching Fed rate:", error);
+    res.status(500).json({ error: "Failed to fetch Fed rate" });
+  }
+});
+
+app.get("/api/ief-yield", async (_req, res) => {
+  try {
+    const html = await fetchTextWithUserAgent(
+      "https://www.ishares.com/us/products/239456/ishares-7-10-year-treasury-bond-etf",
+    );
+    const dividendYield = extractIefDividendYield(html);
+
+    if (!dividendYield) {
+      return res
+        .status(404)
+        .json({ error: "Failed to parse IEF dividend yield" });
+    }
+
+    res.json({
+      dividendYield,
+      label: "12m trailing yield",
+    });
+  } catch (error) {
+    console.error("Error fetching IEF yield:", error);
+    res.status(500).json({ error: "Failed to fetch IEF yield" });
+  }
 });
 
 app.get("/api/ivv-weekly-net-return", async (_req, res) => {

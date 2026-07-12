@@ -32,6 +32,16 @@ interface StockData {
   fiftyTwoWeekChangePercent: number;
 }
 
+interface FedRateData {
+  currentRange: string;
+  label?: string;
+}
+
+interface IefYieldData {
+  dividendYield: string;
+  label?: string;
+}
+
 export async function getStockData(symbol: string): Promise<StockData> {
   try {
     const response = await fetch(
@@ -97,6 +107,38 @@ export async function getFEDMeetingDate(): Promise<{
     };
   } catch (error) {
     console.error("Error fetching FED meeting date:", error);
+    throw error;
+  }
+}
+
+export async function getCurrentFedRate(): Promise<FedRateData> {
+  try {
+    const response = await fetch(`${API_BASE}/fed-rate`);
+    if (!response.ok) throw new Error("Failed to fetch Fed rate");
+
+    const data = await response.json();
+    return {
+      currentRange: data.currentRange || "N/A",
+      label: data.label || "Target range",
+    };
+  } catch (error) {
+    console.error("Error fetching Fed rate:", error);
+    throw error;
+  }
+}
+
+export async function getIefDividendYield(): Promise<IefYieldData> {
+  try {
+    const response = await fetch(`${API_BASE}/ief-yield`);
+    if (!response.ok) throw new Error("Failed to fetch IEF dividend yield");
+
+    const data = await response.json();
+    return {
+      dividendYield: data.dividendYield || "N/A",
+      label: data.label || "12m trailing yield",
+    };
+  } catch (error) {
+    console.error("Error fetching IEF dividend yield:", error);
     throw error;
   }
 }
