@@ -5,6 +5,7 @@ import {
   getFEDMeetingDate,
   getCurrentFedRate,
   getIefDividendYield,
+  getUsdClpObservado,
   getETFWeeklyNetTotalReturn,
   type WeeklyNetReturnPoint,
 } from "./services/yfinance";
@@ -74,9 +75,9 @@ const SAMPLE_METRICS: Metric[] = [
     trendSentiment: "neutral",
   },
   {
-    label: "USDCLP Current Rate",
+    label: "USDCLP Observado",
     value: "Loading...",
-    trendLabel: "Today",
+    trendLabel: "Mon-Fri 16:00 CLT",
     trendDirection: "flat",
     trendSentiment: "neutral",
   },
@@ -708,70 +709,96 @@ export default function MetricGrid({
 
   const fetchMarketData = async () => {
     setLoading(true);
+    const updatedMetrics = [...metrics]; // Use current metrics to preserve lastValue history
+
     try {
-      // Fetch IVV (S&P 500 ETF) data
-      const ivvData = await getStockData("IVV");
-      const ivvTodayReturn = ivvData.changePercent;
-      const ivv52wGain = ivvData.fiftyTwoWeekChangePercent;
+      const [ivvResult, usdclpResult] = await Promise.allSettled([
+        getStockData("IVV"),
+        getForexData("USDCLP=X"),
+      ]);
 
-      // Fetch USDCLP forex data
-      const usdclpData = await getForexData("USDCLP=X");
-      const usdclpTodayReturn = usdclpData.changePercent;
+      const ivvData = ivvResult.status === "fulfilled" ? ivvResult.value : null;
+      const usdclpData =
+        usdclpResult.status === "fulfilled" ? usdclpResult.value : null;
 
-      // Update metrics with real data
-      const updatedMetrics = [...metrics]; // Use current metrics to preserve lastValue history
-      updatedMetrics[0] = {
-        ...updatedMetrics[0],
-        lastValue:
-          updatedMetrics[0].value === "Loading..."
-            ? undefined
-            : updatedMetrics[0].value,
-        lastPriceValue: updatedMetrics[0].currentPrice,
-        currentPrice: `$${ivvData.currentPrice.toFixed(2)}`,
-        value: `${ivvTodayReturn}%`,
-        trendLabel: `${ivvTodayReturn}%`,
-        trendDirection: parseFloat(ivvTodayReturn as any) >= 0 ? "up" : "down",
-        trendSentiment:
-          parseFloat(ivvTodayReturn as any) >= 0 ? "positive" : "negative",
-        hideTrend: true,
-      };
+      if (ivvData) {
+        const ivvTodayReturn = ivvData.changePercent;
+        const ivv52wGain = ivvData.fiftyTwoWeekChangePercent;
 
-      updatedMetrics[1] = {
-        ...updatedMetrics[1],
-        lastValue:
-          updatedMetrics[1].value === "Loading..."
-            ? undefined
-            : updatedMetrics[1].value,
-        lastPriceValue: updatedMetrics[1].currentPrice,
-        currentPrice: `$${usdclpData.lastPrice.toFixed(2)}`,
-        value: `${usdclpTodayReturn}%`,
-        trendLabel: `${usdclpTodayReturn}%`,
-        trendDirection:
-          parseFloat(usdclpTodayReturn as any) >= 0 ? "up" : "down",
-        trendSentiment:
-          parseFloat(usdclpTodayReturn as any) >= 0 ? "positive" : "negative",
-        hideTrend: true,
-      };
+        updatedMetrics[0] = {
+          ...updatedMetrics[0],
+          lastValue:
+            updatedMetrics[0].value === "Loading..."
+              ? undefined
+              : updatedMetrics[0].value,
+          lastPriceValue: updatedMetrics[0].currentPrice,
+          currentPrice: `$${ivvData.currentPrice.toFixed(2)}`,
+          value: `${ivvTodayReturn}%`,
+          trendLabel: `${ivvTodayReturn}%`,
+          trendDirection:
+            parseFloat(ivvTodayReturn as any) >= 0 ? "up" : "down",
+          trendSentiment:
+            parseFloat(ivvTodayReturn as any) >= 0 ? "positive" : "negative",
+          hideTrend: true,
+        };
 
-      updatedMetrics[2] = {
-        ...updatedMetrics[2],
-        value: `$${ivvData.fiftyTwoWeekHigh.toFixed(2)}`,
-        trendLabel: "52W High",
-      };
+        updatedMetrics[2] = {
+          ...updatedMetrics[2],
+          value: `$${ivvData.fiftyTwoWeekHigh.toFixed(2)}`,
+          trendLabel: "52W High",
+        };
 
-      updatedMetrics[3] = {
-        ...updatedMetrics[3],
-        value: `${ivv52wGain}%`,
-        trendLabel: `From $${ivvData.fiftyTwoWeekLow.toFixed(2)}`,
-        trendDirection: parseFloat(ivv52wGain as any) >= 0 ? "up" : "down",
-        trendSentiment: "positive",
-      };
+        updatedMetrics[3] = {
+          ...updatedMetrics[3],
+          value: `${ivv52wGain}%`,
+          trendLabel: `From $${ivvData.fiftyTwoWeekLow.toFixed(2)}`,
+          trendDirection: parseFloat(ivv52wGain as any) >= 0 ? "up" : "down",
+          trendSentiment: "positive",
+        };
+      } else {
+        console.error("Error fetching IVV core data:", ivvResult);
+      }
 
-      updatedMetrics[4] = {
-        ...updatedMetrics[4],
-        value: `$${usdclpData.lastPrice.toFixed(2)}`,
-        trendLabel: "Today",
-      };
+      if (usdclpData) {
+        const usdclpTodayReturn = usdclpData.changePercent;
+        updatedMetrics[1] = {
+          ...updatedMetrics[1],
+          lastValue:
+            updatedMetrics[1].value === "Loading..."
+              ? undefined
+              : updatedMetrics[1].value,
+          lastPriceValue: updatedMetrics[1].currentPrice,
+          currentPrice: `$${usdclpData.lastPrice.toFixed(2)}`,
+          value: `${usdclpTodayReturn}%`,
+          trendLabel: `${usdclpTodayReturn}%`,
+          trendDirection:
+            parseFloat(usdclpTodayReturn as any) >= 0 ? "up" : "down",
+          trendSentiment:
+            parseFloat(usdclpTodayReturn as any) >= 0 ? "positive" : "negative",
+          hideTrend: true,
+        };
+      } else {
+        console.error("Error fetching USDCLP forex core data:", usdclpResult);
+      }
+
+      try {
+        const usdclpObservado = await getUsdClpObservado();
+        const observedDateSuffix = usdclpObservado.effectiveDate
+          ? ` (${usdclpObservado.effectiveDate})`
+          : "";
+        updatedMetrics[4] = {
+          ...updatedMetrics[4],
+          value: `CLP ${usdclpObservado.value.toLocaleString("es-CL", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`,
+          trendLabel: `${usdclpObservado.label || "Mon-Fri 16:00 CLT"}${observedDateSuffix}`,
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
+      } catch (usdclpObservadoError) {
+        console.error("Error fetching USDCLP observado:", usdclpObservadoError);
+      }
 
       // Fetch next FED meeting date
       try {
@@ -819,17 +846,21 @@ export default function MetricGrid({
         console.error("Error fetching IEF yield:", iefYieldError);
       }
 
-      updatedMetrics[6] = {
-        ...updatedMetrics[6],
-        value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpTodayReturn / 100) - 1) * 100).toFixed(4)}%`,
-        trendLabel: "TEST",
-      };
+      if (ivvData && usdclpData) {
+        updatedMetrics[6] = {
+          ...updatedMetrics[6],
+          value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpData.changePercent / 100) - 1) * 100).toFixed(4)}%`,
+          trendLabel: "TEST",
+        };
+      }
 
-      updatedMetrics[7] = {
-        ...updatedMetrics[7],
-        value: `${((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100).toFixed(4)}%`,
-        trendLabel: "TEST",
-      };
+      if (ivvData) {
+        updatedMetrics[7] = {
+          ...updatedMetrics[7],
+          value: `${((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100).toFixed(4)}%`,
+          trendLabel: "TEST",
+        };
+      }
 
       // Fetch stocks from tickers array; do not fail all cards if one ticker fails
       const baseMetricsCount = 10; // Indices 0-9 are base metrics
@@ -839,11 +870,6 @@ export default function MetricGrid({
 
       // Update metrics for stock tickers (starting from index 10)
       tickerDataArray.forEach((stockResult, index) => {
-        if (stockResult.status !== "fulfilled") {
-          return;
-        }
-
-        const stockData = stockResult.value;
         const metricIndex = baseMetricsCount + index;
         const baseMetric: Metric = updatedMetrics[metricIndex] ?? {
           label: tickers[index]?.label ?? tickers[index]?.symbol ?? "Ticker",
@@ -852,6 +878,19 @@ export default function MetricGrid({
           trendDirection: "flat",
           trendSentiment: "neutral",
         };
+
+        if (stockResult.status !== "fulfilled") {
+          updatedMetrics[metricIndex] = {
+            ...baseMetric,
+            value: "N/A",
+            trendLabel: "Unavailable",
+            trendDirection: "flat",
+            trendSentiment: "neutral",
+          };
+          return;
+        }
+
+        const stockData = stockResult.value;
         updatedMetrics[metricIndex] = {
           ...baseMetric,
           value: `$${stockData.currentPrice.toFixed(2)}`,
@@ -868,19 +907,7 @@ export default function MetricGrid({
       setMetrics(updatedMetrics);
     } catch (error) {
       console.error("Error fetching market data:", error);
-      setMetrics((prev) =>
-        prev.map((metric) =>
-          metric.value === "Loading..."
-            ? {
-                ...metric,
-                value: "N/A",
-                trendLabel: "Unavailable",
-                trendDirection: "flat",
-                trendSentiment: "neutral",
-              }
-            : metric,
-        ),
-      );
+      setMetrics(updatedMetrics);
     } finally {
       setLoading(false);
     }

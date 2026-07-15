@@ -50,6 +50,109 @@ function extractIefDividendYield(html: string): string | null {
   return yieldMatch ? yieldMatch[1] : null;
 }
 
+function extractUsdClpObservado(html: string): number | null {
+  const linkMatch = html.match(
+    /id="hypLnk([0-9_]+)"[^>]*href="[^"]*gcode=PRE_TCO[^"]*"/i,
+  );
+  const suffix = linkMatch?.[1];
+
+  if (!suffix) {
+    return null;
+  }
+
+  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const valueMatch = html.match(
+    new RegExp(
+      `<label[^>]*id="lblValor${escapedSuffix}"[^>]*>\\s*([0-9\\.,]+)\\s*<\\/label>`,
+      "i",
+    ),
+  );
+
+  if (!valueMatch?.[1]) {
+    return null;
+  }
+
+  const normalized = valueMatch[1].replace(/\./g, "").replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getChileNowParts(now = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  weekday: number;
+} {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    weekday: "short",
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type: string) =>
+    Number.parseInt(parts.find((p) => p.type === type)?.value || "0", 10);
+  const weekdayToken =
+    parts.find((p) => p.type === "weekday")?.value.toLowerCase() || "";
+  const weekdayMap: Record<string, number> = {
+    sun: 0,
+    mon: 1,
+    tue: 2,
+    wed: 3,
+    thu: 4,
+    fri: 5,
+    sat: 6,
+  };
+
+  return {
+    year: getPart("year"),
+    month: getPart("month"),
+    day: getPart("day"),
+    hour: getPart("hour"),
+    weekday: weekdayMap[weekdayToken] ?? 0,
+  };
+}
+
+function isWeekendUtc(date: Date): boolean {
+  const weekday = date.getUTCDay();
+  return weekday === 0 || weekday === 6;
+}
+
+function subtractBusinessDaysUtc(date: Date, businessDays: number): Date {
+  const cursor = new Date(date.getTime());
+  let remaining = businessDays;
+
+  while (remaining > 0) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    if (!isWeekendUtc(cursor)) {
+      remaining -= 1;
+    }
+  }
+
+  return cursor;
+}
+
+function getObservedEffectiveDate(now = new Date()): string {
+  const chileNow = getChileNowParts(now);
+  const chileDateUtc = new Date(
+    Date.UTC(chileNow.year, chileNow.month - 1, chileNow.day),
+  );
+
+  const isWeekend = chileNow.weekday === 0 || chileNow.weekday === 6;
+  const beforeCutoff =
+    chileNow.weekday >= 1 && chileNow.weekday <= 5 && chileNow.hour < 16;
+  const needsPreviousBusinessDay = isWeekend || beforeCutoff;
+  const effectiveDate = needsPreviousBusinessDay
+    ? subtractBusinessDaysUtc(chileDateUtc, 1)
+    : chileDateUtc;
+
+  return effectiveDate.toISOString().slice(0, 10);
+}
+
 async function stockHandler(req: express.Request, res: express.Response) {
   try {
     const symbol = parseSymbol(req);
@@ -99,6 +202,32 @@ async function forexHandler(req: express.Request, res: express.Response) {
 
 app.get("/api/forex", forexHandler);
 app.get("/api/forex/:symbol", forexHandler);
+
+app.get("/api/usdclp-observado", async (_req, res) => {
+  try {
+    const html = await fetchTextWithUserAgent(
+      "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
+    );
+    const value = extractUsdClpObservado(html);
+
+    if (value === null) {
+      return res.status(502).json({
+        error: "Failed to parse USDCLP observado value",
+      });
+    }
+
+    res.json({
+      value,
+      label: "Mon-Fri 16:00 CLT",
+      effectiveDate: getObservedEffectiveDate(),
+      source:
+        "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
+    });
+  } catch (error) {
+    console.error("Error fetching USDCLP observado:", error);
+    res.status(500).json({ error: "Failed to fetch USDCLP observado" });
+  }
+});
 
 const FOMC_DATES = [
   new Date(2025, 0, 29),

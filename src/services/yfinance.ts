@@ -1,7 +1,21 @@
 // Determine API base URL based on environment
 const getApiBase = () => {
-  // Use relative URL so Vite dev proxy can forward /api requests locally,
-  // and production keeps same-origin /api behavior.
+  const envBase = (import.meta as any)?.env?.VITE_API_BASE;
+  if (typeof envBase === "string" && envBase.trim()) {
+    return envBase.trim().replace(/\/$/, "");
+  }
+
+  // Local preview/build can run without Vite proxy; point directly to the API server.
+  if (typeof window !== "undefined") {
+    const isLocalHost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (isLocalHost && window.location.port !== "3002") {
+      return "http://localhost:3002/api";
+    }
+  }
+
+  // Default for production and same-origin deployments.
   return "/api";
 };
 
@@ -40,6 +54,12 @@ interface FedRateData {
 interface IefYieldData {
   dividendYield: string;
   label?: string;
+}
+
+interface UsdClpObservadoData {
+  value: number;
+  label?: string;
+  effectiveDate?: string;
 }
 
 export async function getStockData(symbol: string): Promise<StockData> {
@@ -139,6 +159,23 @@ export async function getIefDividendYield(): Promise<IefYieldData> {
     };
   } catch (error) {
     console.error("Error fetching IEF dividend yield:", error);
+    throw error;
+  }
+}
+
+export async function getUsdClpObservado(): Promise<UsdClpObservadoData> {
+  try {
+    const response = await fetch(`${API_BASE}/usdclp-observado`);
+    if (!response.ok) throw new Error("Failed to fetch USDCLP observado");
+
+    const data = await response.json();
+    return {
+      value: Number(data.value || 0),
+      label: data.label || "Mon-Fri 16:00 CLT",
+      effectiveDate: data.effectiveDate,
+    };
+  } catch (error) {
+    console.error("Error fetching USDCLP observado:", error);
     throw error;
   }
 }
