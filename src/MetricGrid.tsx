@@ -824,9 +824,7 @@ export default function MetricGrid({
           : "";
         const sourceLabel = usdclpObservado.source?.includes("si3.bcentral.cl")
           ? "BCCh"
-          : usdclpObservado.source?.includes("sii.cl")
-            ? "SII"
-            : "Unknown";
+          : "Unknown";
         updatedMetrics[4] = {
           ...updatedMetrics[4],
           value: `CLP ${usdclpObservado.value.toLocaleString("es-CL", {

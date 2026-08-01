@@ -25,108 +25,6 @@ function extractUsdClpObservado(html) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-const SII_MONTH_IDS = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-function parseLocaleNumber(raw) {
-  if (typeof raw !== "string") return null;
-  const cleaned = raw
-    .replace(/\u00a0/g, " ")
-    .trim()
-    .replace(/[^0-9,.-]/g, "");
-
-  if (!cleaned) return null;
-
-  let normalized = cleaned;
-  const hasComma = cleaned.includes(",");
-  const hasDot = cleaned.includes(".");
-
-  if (hasComma && hasDot) {
-    // Handles values like 1.234,56.
-    normalized = cleaned.replace(/\./g, "").replace(",", ".");
-  } else if (hasComma) {
-    // Handles values like 924,78.
-    normalized = cleaned.replace(/,/g, ".");
-  } else {
-    // Handles values like 924.78.
-    normalized = cleaned;
-  }
-
-  const parsed = Number.parseFloat(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function extractUsdClpObservadoFromSii(html, effectiveDate) {
-  const [yearToken, monthToken, dayToken] = String(effectiveDate || "").split(
-    "-",
-  );
-  const month = Number.parseInt(monthToken, 10);
-  const day = Number.parseInt(dayToken, 10);
-  const monthId = SII_MONTH_IDS[month - 1];
-  if (!yearToken || !monthId || !Number.isFinite(day)) {
-    return null;
-  }
-
-  const targetUtc = Date.UTC(
-    Number.parseInt(yearToken, 10),
-    month - 1,
-    day,
-    23,
-    59,
-    59,
-    999,
-  );
-  const monthSectionRegex =
-    /<div class=['"]meses['"][^>]*id=['"]mes_([a-z]+)['"][\s\S]*?(?=<div class=['"]meses['"]|$)/gi;
-  const pairRegex =
-    /<th[^>]*>\s*(?:<strong>)?\s*(\d{1,2})\s*(?:<\/strong>)?\s*<\/th>\s*<td[^>]*>\s*([^<]*)\s*<\/td>/gi;
-
-  let bestValue = null;
-  let bestDateUtc = -1;
-  let sectionMatch;
-  while ((sectionMatch = monthSectionRegex.exec(html)) !== null) {
-    const sectionMonthId = (sectionMatch[1] || "").toLowerCase();
-    const sectionMonthIndex = SII_MONTH_IDS.indexOf(sectionMonthId);
-    if (sectionMonthIndex < 0) {
-      continue;
-    }
-
-    const sectionHtml = sectionMatch[0];
-    let dayMatch;
-    while ((dayMatch = pairRegex.exec(sectionHtml)) !== null) {
-      const parsedDay = Number.parseInt(dayMatch[1], 10);
-      const parsedValue = parseLocaleNumber(dayMatch[2]);
-      if (!Number.isFinite(parsedDay) || parsedValue === null) {
-        continue;
-      }
-
-      const candidateDateUtc = Date.UTC(
-        Number.parseInt(yearToken, 10),
-        sectionMonthIndex,
-        parsedDay,
-      );
-      if (candidateDateUtc <= targetUtc && candidateDateUtc > bestDateUtc) {
-        bestDateUtc = candidateDateUtc;
-        bestValue = parsedValue;
-      }
-    }
-  }
-
-  return bestValue;
-}
-
 function getChileNowParts(now = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Santiago",
@@ -218,8 +116,6 @@ export async function onRequest(context) {
     const effectiveDate = getObservedEffectiveDate();
     const primarySource =
       "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx";
-    const effectiveYear = Number.parseInt(effectiveDate.slice(0, 4), 10);
-    const fallbackSource = `https://www.sii.cl/valores_y_fechas/dolar/dolar${effectiveYear}.htm`;
     let value = null;
     let source = "";
 
@@ -243,51 +139,8 @@ export async function onRequest(context) {
     }
 
     if (value === null) {
-      const fallbackResponse = await fetch(fallbackSource, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; DashboardBot/1.0; +https://dashboard-bc6.pages.dev)",
-        },
-      });
-      if (!fallbackResponse.ok) {
-        return new Response(
-          JSON.stringify({ error: "Failed to fetch USDCLP observado source" }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
-      }
-
-      const fallbackHtml = await fallbackResponse.text();
-      value = extractUsdClpObservadoFromSii(fallbackHtml, effectiveDate);
-      source = fallbackSource;
-
-      if (value === null) {
-        const previousYearSource = `https://www.sii.cl/valores_y_fechas/dolar/dolar${effectiveYear - 1}.htm`;
-        const previousYearResponse = await fetch(previousYearSource, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; DashboardBot/1.0; +https://dashboard-bc6.pages.dev)",
-          },
-        });
-
-        if (previousYearResponse.ok) {
-          const previousYearHtml = await previousYearResponse.text();
-          value = extractUsdClpObservadoFromSii(
-            previousYearHtml,
-            `${effectiveYear - 1}-12-31`,
-          );
-          if (value !== null) {
-            source = previousYearSource;
-          }
-        }
-      }
-    }
-
-    if (value === null) {
       return new Response(
-        JSON.stringify({ error: "Failed to parse USDCLP observado value" }),
+        JSON.stringify({ error: "Failed to fetch USDCLP observado from BCCh" }),
         {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
