@@ -25,6 +25,71 @@ function extractUsdClpObservado(html) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const SII_MONTH_IDS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+function parseLocaleNumber(raw) {
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim().replace(/\./g, "").replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractUsdClpObservadoFromSii(html, effectiveDate) {
+  const [yearToken, monthToken, dayToken] = String(effectiveDate || "").split(
+    "-",
+  );
+  const month = Number.parseInt(monthToken, 10);
+  const day = Number.parseInt(dayToken, 10);
+  const monthId = SII_MONTH_IDS[month - 1];
+  if (!yearToken || !monthId || !Number.isFinite(day)) {
+    return null;
+  }
+
+  const sectionMatch = html.match(
+    new RegExp(
+      `<div class=['"]meses['"][^>]*id=['"]mes_${monthId}['"][\\s\\S]*?(?=<div class=['"]meses['"]|$)`,
+      "i",
+    ),
+  );
+  if (!sectionMatch) {
+    return null;
+  }
+
+  const section = sectionMatch[0];
+  const dayValueMap = new Map();
+  const pairRegex =
+    /<th[^>]*>\s*(?:<strong>)?\s*(\d{1,2})\s*(?:<\/strong>)?\s*<\/th>\s*<td[^>]*>\s*([0-9\.,]*)\s*<\/td>/gi;
+  let match;
+  while ((match = pairRegex.exec(section)) !== null) {
+    const parsedDay = Number.parseInt(match[1], 10);
+    const parsedValue = parseLocaleNumber(match[2]);
+    if (Number.isFinite(parsedDay) && parsedValue !== null) {
+      dayValueMap.set(parsedDay, parsedValue);
+    }
+  }
+
+  for (let candidateDay = day; candidateDay >= 1; candidateDay -= 1) {
+    if (dayValueMap.has(candidateDay)) {
+      return dayValueMap.get(candidateDay);
+    }
+  }
+
+  return null;
+}
+
 function getChileNowParts(now = new Date()) {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Santiago",
@@ -113,28 +178,53 @@ export async function onRequest(context) {
   }
 
   try {
-    const response = await fetch(
-      "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
-      {
+    const effectiveDate = getObservedEffectiveDate();
+    const primarySource =
+      "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx";
+    const fallbackSource = `https://www.sii.cl/valores_y_fechas/dolar/dolar${effectiveDate.slice(0, 4)}.htm`;
+    let value = null;
+    let source = "";
+
+    try {
+      const response = await fetch(primarySource, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (compatible; DashboardBot/1.0; +https://dashboard-bc6.pages.dev)",
         },
-      },
-    );
+      });
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: "Failed to fetch USDCLP observado source" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      if (response.ok) {
+        const html = await response.text();
+        value = extractUsdClpObservado(html);
+        if (value !== null) {
+          source = primarySource;
+        }
+      }
+    } catch (primaryError) {
+      console.warn("Primary USDCLP observado source failed:", primaryError);
     }
 
-    const html = await response.text();
-    const value = extractUsdClpObservado(html);
+    if (value === null) {
+      const fallbackResponse = await fetch(fallbackSource, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; DashboardBot/1.0; +https://dashboard-bc6.pages.dev)",
+        },
+      });
+      if (!fallbackResponse.ok) {
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch USDCLP observado source" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const fallbackHtml = await fallbackResponse.text();
+      value = extractUsdClpObservadoFromSii(fallbackHtml, effectiveDate);
+      source = fallbackSource;
+    }
 
     if (value === null) {
       return new Response(
@@ -150,9 +240,8 @@ export async function onRequest(context) {
       JSON.stringify({
         value,
         label: "Mon-Fri 16:00 CLT",
-        effectiveDate: getObservedEffectiveDate(),
-        source:
-          "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
+        effectiveDate,
+        source,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

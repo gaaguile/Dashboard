@@ -185,13 +185,13 @@ const S = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "0.65rem 1.25rem",
+    padding: "0.85rem 1.6rem",
     background:
       "linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)",
     color: "white",
     border: "none",
     borderRadius: "var(--radius)",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -208,12 +208,12 @@ const S = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "0.65rem 1.25rem",
+    padding: "0.85rem 1.6rem",
     background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
     color: "white",
     border: "none",
     borderRadius: "var(--radius)",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -680,6 +680,10 @@ export default function MetricGrid({
     IVVChartPoint[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [ivvLiveWtd, setIvvLiveWtd] = useState<number | null>(null);
+  const [ivvLiveClpWtd, setIvvLiveClpWtd] = useState<number | null>(null);
+  const [iywLiveWtd, setIywLiveWtd] = useState<number | null>(null);
+  const [iywLiveClpWtd, setIywLiveClpWtd] = useState<number | null>(null);
 
   // Load tickers from JSON file on component mount
   useEffect(() => {
@@ -712,12 +716,14 @@ export default function MetricGrid({
     const updatedMetrics = [...metrics]; // Use current metrics to preserve lastValue history
 
     try {
-      const [ivvResult, usdclpResult] = await Promise.allSettled([
+      const [ivvResult, iywResult, usdclpResult] = await Promise.allSettled([
         getStockData("IVV"),
+        getStockData("IYW"),
         getForexData("USDCLP=X"),
       ]);
 
       const ivvData = ivvResult.status === "fulfilled" ? ivvResult.value : null;
+      const iywData = iywResult.status === "fulfilled" ? iywResult.value : null;
       const usdclpData =
         usdclpResult.status === "fulfilled" ? usdclpResult.value : null;
 
@@ -759,6 +765,13 @@ export default function MetricGrid({
         console.error("Error fetching IVV core data:", ivvResult);
       }
 
+      if (iywData) {
+        setIywLiveWtd(iywData.weekToDateChangePercent);
+      } else {
+        console.error("Error fetching IYW core data:", iywResult);
+        setIywLiveWtd(null);
+      }
+
       if (usdclpData) {
         const usdclpTodayReturn = usdclpData.changePercent;
         updatedMetrics[1] = {
@@ -781,18 +794,46 @@ export default function MetricGrid({
         console.error("Error fetching USDCLP forex core data:", usdclpResult);
       }
 
+      if (ivvData && usdclpData) {
+        const ivvWtdUsd = ivvData.weekToDateChangePercent;
+        const usdclpWtd = usdclpData.weekToDateChangePercent;
+        const ivvWtdClp =
+          ((1 + ivvWtdUsd / 100) * (1 + usdclpWtd / 100) - 1) * 100;
+        setIvvLiveWtd(ivvWtdUsd);
+        setIvvLiveClpWtd(ivvWtdClp);
+      } else {
+        setIvvLiveWtd(null);
+        setIvvLiveClpWtd(null);
+      }
+
+      if (iywData && usdclpData) {
+        const iywWtdUsd = iywData.weekToDateChangePercent;
+        const usdclpWtd = usdclpData.weekToDateChangePercent;
+        const iywWtdClp =
+          ((1 + iywWtdUsd / 100) * (1 + usdclpWtd / 100) - 1) * 100;
+        setIywLiveWtd(iywWtdUsd);
+        setIywLiveClpWtd(iywWtdClp);
+      } else {
+        setIywLiveClpWtd(null);
+      }
+
       try {
         const usdclpObservado = await getUsdClpObservado();
         const observedDateSuffix = usdclpObservado.effectiveDate
           ? ` (${usdclpObservado.effectiveDate})`
           : "";
+        const sourceLabel = usdclpObservado.source?.includes("si3.bcentral.cl")
+          ? "BCCh"
+          : usdclpObservado.source?.includes("sii.cl")
+            ? "SII"
+            : "Unknown";
         updatedMetrics[4] = {
           ...updatedMetrics[4],
           value: `CLP ${usdclpObservado.value.toLocaleString("es-CL", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`,
-          trendLabel: `${usdclpObservado.label || "Mon-Fri 16:00 CLT"}${observedDateSuffix}`,
+          trendLabel: `${usdclpObservado.label || "Mon-Fri 16:00 CLT"}${observedDateSuffix} · Source: ${sourceLabel}`,
           trendDirection: "flat",
           trendSentiment: "neutral",
         };
@@ -1023,16 +1064,27 @@ export default function MetricGrid({
 
   const ivvYtd = computePeriodReturn(ivvWeeklyNetReturn, ytdStart);
   const ivvMtd = computePeriodReturn(ivvWeeklyNetReturn, mtdStart);
-  const ivvWtd = computePeriodReturn(ivvWeeklyNetReturn, wtdStart);
+  const ivvWtdFromSeries = computePeriodReturn(ivvWeeklyNetReturn, wtdStart);
   const ivvClpYtd = computePeriodReturn(ivvWeeklyNetReturnClp, ytdStart);
   const ivvClpMtd = computePeriodReturn(ivvWeeklyNetReturnClp, mtdStart);
-  const ivvClpWtd = computePeriodReturn(ivvWeeklyNetReturnClp, wtdStart);
+  const ivvClpWtdFromSeries = computePeriodReturn(
+    ivvWeeklyNetReturnClp,
+    wtdStart,
+  );
   const iywYtd = computePeriodReturn(iywWeeklyNetReturn, ytdStart);
   const iywMtd = computePeriodReturn(iywWeeklyNetReturn, mtdStart);
-  const iywWtd = computePeriodReturn(iywWeeklyNetReturn, wtdStart);
+  const iywWtdFromSeries = computePeriodReturn(iywWeeklyNetReturn, wtdStart);
   const iywClpYtd = computePeriodReturn(iywWeeklyNetReturnClp, ytdStart);
   const iywClpMtd = computePeriodReturn(iywWeeklyNetReturnClp, mtdStart);
-  const iywClpWtd = computePeriodReturn(iywWeeklyNetReturnClp, wtdStart);
+  const iywClpWtdFromSeries = computePeriodReturn(
+    iywWeeklyNetReturnClp,
+    wtdStart,
+  );
+
+  const ivvWtd = ivvLiveWtd ?? ivvWtdFromSeries;
+  const ivvClpWtd = ivvLiveClpWtd ?? ivvClpWtdFromSeries;
+  const iywWtd = iywLiveWtd ?? iywWtdFromSeries;
+  const iywClpWtd = iywLiveClpWtd ?? iywClpWtdFromSeries;
 
   const formatReturn = (value: number | null): string => {
     if (value === null || Number.isNaN(value)) return "N/A";
@@ -1050,7 +1102,7 @@ export default function MetricGrid({
           <button onClick={handleRefresh} style={S.refreshBtn} data-refresh-btn>
             <i
               className="ti ti-refresh"
-              style={{ fontSize: 16 }}
+              style={{ fontSize: 18 }}
               aria-hidden="true"
             />
             Refresh
@@ -1059,7 +1111,7 @@ export default function MetricGrid({
             <button onClick={onLogoutProp} style={S.logoutBtn}>
               <i
                 className="ti ti-logout"
-                style={{ fontSize: 16 }}
+                style={{ fontSize: 18 }}
                 aria-hidden="true"
               />
               Logout
@@ -1081,11 +1133,13 @@ export default function MetricGrid({
           non-resident alien withholding tax (for Chile investors).
         </p>
         <div style={S.chartKpiRow}>
-          <span style={S.chartKpiBadge}>WTD: {formatReturn(ivvWtd)}</span>
+          <span style={S.chartKpiBadge}>
+            WTD (Daily Live): {formatReturn(ivvWtd)}
+          </span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(ivvMtd)}</span>
           <span style={S.chartKpiBadge}>YTD: {formatReturn(ivvYtd)}</span>
           <span style={S.chartKpiBadge}>
-            WTD USDCLP : {formatReturn(ivvClpWtd)}
+            WTD USDCLP (Daily Live): {formatReturn(ivvClpWtd)}
           </span>
           <span style={S.chartKpiBadge}>
             MTD USDCLP : {formatReturn(ivvClpMtd)}
@@ -1123,11 +1177,13 @@ export default function MetricGrid({
           non-resident alien withholding tax (for Chile investors).
         </p>
         <div style={S.chartKpiRow}>
-          <span style={S.chartKpiBadge}>WTD: {formatReturn(iywWtd)}</span>
+          <span style={S.chartKpiBadge}>
+            WTD (Daily Live): {formatReturn(iywWtd)}
+          </span>
           <span style={S.chartKpiBadge}>MTD: {formatReturn(iywMtd)}</span>
           <span style={S.chartKpiBadge}>YTD: {formatReturn(iywYtd)}</span>
           <span style={S.chartKpiBadge}>
-            WTD USDCLP: {formatReturn(iywClpWtd)}
+            WTD USDCLP (Daily Live): {formatReturn(iywClpWtd)}
           </span>
           <span style={S.chartKpiBadge}>
             MTD USDCLP: {formatReturn(iywClpMtd)}

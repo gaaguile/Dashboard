@@ -2,6 +2,11 @@ export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
 
+  const toNyDateString = (value) =>
+    new Date(value).toLocaleDateString("en-CA", {
+      timeZone: "America/New_York",
+    });
+
   // CORS headers
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -48,9 +53,16 @@ export async function onRequest(context) {
     const resultNode = data.chart?.result?.[0];
     const meta = resultNode?.meta;
     const quote = resultNode?.indicators?.quote?.[0];
-    const closes = (quote?.close || []).filter((v) => typeof v === "number");
+    const timestamps = resultNode?.timestamp || [];
+    const rawCloses = quote?.close || [];
+    const points = timestamps
+      .map((ts, i) => ({
+        ts,
+        close: rawCloses[i],
+      }))
+      .filter((p) => Number.isFinite(p.ts) && typeof p.close === "number");
 
-    if (!meta || closes.length === 0) {
+    if (!meta || points.length === 0) {
       return new Response(
         JSON.stringify({ error: `No data found for ${symbol}` }),
         {
@@ -60,9 +72,28 @@ export async function onRequest(context) {
       );
     }
 
-    const currentPrice = closes[closes.length - 1];
-    const previousClose =
-      closes.length > 1 ? closes[closes.length - 2] : currentPrice;
+    const closes = points.map((p) => p.close);
+    const latestPoint = points[points.length - 1];
+    const previousPoint =
+      points.length > 1 ? points[points.length - 2] : latestPoint;
+    const currentPrice = latestPoint.close;
+    const previousClose = previousPoint.close;
+
+    const nowNy = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
+    );
+    const weekStartNy = new Date(nowNy);
+    const daysSinceMonday = (weekStartNy.getDay() + 6) % 7;
+    weekStartNy.setDate(weekStartNy.getDate() - daysSinceMonday);
+    const weekStartNyDate = toNyDateString(weekStartNy);
+
+    const baselinePoint = [...points]
+      .reverse()
+      .find((p) => toNyDateString(p.ts * 1000) < weekStartNyDate);
+    const weekToDateChangePercent =
+      baselinePoint && baselinePoint.close > 0
+        ? (currentPrice / baselinePoint.close - 1) * 100
+        : 0;
 
     const change = currentPrice - previousClose;
     const changePercent = previousClose ? (change / previousClose) * 100 : 0;
@@ -72,6 +103,7 @@ export async function onRequest(context) {
       currentPrice,
       change,
       changePercent,
+      weekToDateChangePercent,
       fiftyTwoWeekHigh: Math.max(...closes),
       fiftyTwoWeekLow: Math.min(...closes),
     };

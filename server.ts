@@ -77,6 +77,74 @@ function extractUsdClpObservado(html: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const SII_MONTH_IDS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+function parseLocaleNumber(raw: string): number | null {
+  const normalized = raw.trim().replace(/\./g, "").replace(",", ".");
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractUsdClpObservadoFromSii(
+  html: string,
+  effectiveDate: string,
+): number | null {
+  const [yearToken, monthToken, dayToken] = String(effectiveDate || "").split(
+    "-",
+  );
+  const month = Number.parseInt(monthToken, 10);
+  const day = Number.parseInt(dayToken, 10);
+  const monthId = SII_MONTH_IDS[month - 1];
+  if (!yearToken || !monthId || !Number.isFinite(day)) {
+    return null;
+  }
+
+  const sectionMatch = html.match(
+    new RegExp(
+      `<div class=['"]meses['"][^>]*id=['"]mes_${monthId}['"][\\s\\S]*?(?=<div class=['"]meses['"]|$)`,
+      "i",
+    ),
+  );
+  if (!sectionMatch) {
+    return null;
+  }
+
+  const section = sectionMatch[0];
+  const dayValueMap = new Map<number, number>();
+  const pairRegex =
+    /<th[^>]*>\s*(?:<strong>)?\s*(\d{1,2})\s*(?:<\/strong>)?\s*<\/th>\s*<td[^>]*>\s*([0-9\.,]*)\s*<\/td>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pairRegex.exec(section)) !== null) {
+    const parsedDay = Number.parseInt(match[1], 10);
+    const parsedValue = parseLocaleNumber(match[2]);
+    if (Number.isFinite(parsedDay) && parsedValue !== null) {
+      dayValueMap.set(parsedDay, parsedValue);
+    }
+  }
+
+  for (let candidateDay = day; candidateDay >= 1; candidateDay -= 1) {
+    const value = dayValueMap.get(candidateDay);
+    if (typeof value === "number") {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 function getChileNowParts(now = new Date()): {
   year: number;
   month: number;
@@ -205,10 +273,29 @@ app.get("/api/forex/:symbol", forexHandler);
 
 app.get("/api/usdclp-observado", async (_req, res) => {
   try {
-    const html = await fetchTextWithUserAgent(
-      "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
-    );
-    const value = extractUsdClpObservado(html);
+    const effectiveDate = getObservedEffectiveDate();
+    const primarySource =
+      "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx";
+    const fallbackSource = `https://www.sii.cl/valores_y_fechas/dolar/dolar${effectiveDate.slice(0, 4)}.htm`;
+
+    let value: number | null = null;
+    let source = "";
+
+    try {
+      const html = await fetchTextWithUserAgent(primarySource);
+      value = extractUsdClpObservado(html);
+      if (value !== null) {
+        source = primarySource;
+      }
+    } catch (primaryError) {
+      console.warn("Primary USDCLP observado source failed:", primaryError);
+    }
+
+    if (value === null) {
+      const fallbackHtml = await fetchTextWithUserAgent(fallbackSource);
+      value = extractUsdClpObservadoFromSii(fallbackHtml, effectiveDate);
+      source = fallbackSource;
+    }
 
     if (value === null) {
       return res.status(502).json({
@@ -219,9 +306,8 @@ app.get("/api/usdclp-observado", async (_req, res) => {
     res.json({
       value,
       label: "Mon-Fri 16:00 CLT",
-      effectiveDate: getObservedEffectiveDate(),
-      source:
-        "https://si3.bcentral.cl/indicadoressiete/secure/IndicadoresDiarios.aspx",
+      effectiveDate,
+      source,
     });
   } catch (error) {
     console.error("Error fetching USDCLP observado:", error);

@@ -40,6 +40,7 @@ interface StockData {
   currentPrice: number;
   change: number;
   changePercent: number;
+  weekToDateChangePercent: number;
   fiftyTwoWeekHigh: number;
   fiftyTwoWeekLow: number;
   fiftyTwoWeekChange: number;
@@ -60,6 +61,7 @@ interface UsdClpObservadoData {
   value: number;
   label?: string;
   effectiveDate?: string;
+  source?: string;
 }
 
 export async function getStockData(symbol: string): Promise<StockData> {
@@ -75,6 +77,7 @@ export async function getStockData(symbol: string): Promise<StockData> {
       currentPrice: data.currentPrice || 0,
       change: data.change || 0,
       changePercent: (data.changePercent || 0).toFixed(2) as any,
+      weekToDateChangePercent: Number(data.weekToDateChangePercent || 0),
       fiftyTwoWeekHigh: data.fiftyTwoWeekHigh || 0,
       fiftyTwoWeekLow: data.fiftyTwoWeekLow || 0,
       fiftyTwoWeekChange:
@@ -91,9 +94,12 @@ export async function getStockData(symbol: string): Promise<StockData> {
   }
 }
 
-export async function getForexData(
-  symbol: string,
-): Promise<{ change: number; changePercent: number; lastPrice: number }> {
+export async function getForexData(symbol: string): Promise<{
+  change: number;
+  changePercent: number;
+  weekToDateChangePercent: number;
+  lastPrice: number;
+}> {
   try {
     const response = await fetch(
       `${API_BASE}/forex?symbol=${encodeURIComponent(symbol)}`,
@@ -104,6 +110,7 @@ export async function getForexData(
     return {
       change: (data.change || 0).toFixed(4) as any,
       changePercent: (data.changePercent || 0).toFixed(2) as any,
+      weekToDateChangePercent: Number(data.weekToDateChangePercent || 0),
       lastPrice: data.lastPrice || 0,
     };
   } catch (error) {
@@ -173,6 +180,7 @@ export async function getUsdClpObservado(): Promise<UsdClpObservadoData> {
       value: Number(data.value || 0),
       label: data.label || "Mon-Fri 16:00 CLT",
       effectiveDate: data.effectiveDate,
+      source: data.source,
     };
   } catch (error) {
     console.error("Error fetching USDCLP observado:", error);
