@@ -5,7 +5,6 @@ import {
   getFEDMeetingDate,
   getCurrentFedRate,
   getIefDividendYield,
-  getUsdClpObservado,
   getETFWeeklyNetTotalReturn,
   type WeeklyNetReturnPoint,
 } from "./services/yfinance";
@@ -71,13 +70,6 @@ const SAMPLE_METRICS: Metric[] = [
     label: "IVV 52W Gain",
     value: "Loading...",
     trendLabel: "From Low",
-    trendDirection: "flat",
-    trendSentiment: "neutral",
-  },
-  {
-    label: "USDCLP Observado",
-    value: "Loading...",
-    trendLabel: "Mon-Fri 16:00 CLT",
     trendDirection: "flat",
     trendSentiment: "neutral",
   },
@@ -817,33 +809,11 @@ export default function MetricGrid({
         setIywLiveClpWtd(null);
       }
 
-      try {
-        const usdclpObservado = await getUsdClpObservado();
-        const observedDateSuffix = usdclpObservado.effectiveDate
-          ? ` (${usdclpObservado.effectiveDate})`
-          : "";
-        const sourceLabel = usdclpObservado.source?.includes("si3.bcentral.cl")
-          ? "BCCh"
-          : "Unknown";
-        updatedMetrics[4] = {
-          ...updatedMetrics[4],
-          value: `CLP ${usdclpObservado.value.toLocaleString("es-CL", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`,
-          trendLabel: `${usdclpObservado.label || "Mon-Fri 16:00 CLT"}${observedDateSuffix} · Source: ${sourceLabel}`,
-          trendDirection: "flat",
-          trendSentiment: "neutral",
-        };
-      } catch (usdclpObservadoError) {
-        console.error("Error fetching USDCLP observado:", usdclpObservadoError);
-      }
-
       // Fetch next FED meeting date
       try {
         const fedMeetingData = await getFEDMeetingDate();
-        updatedMetrics[5] = {
-          ...updatedMetrics[5],
+        updatedMetrics[4] = {
+          ...updatedMetrics[4],
           value: fedMeetingData.formattedDate,
           trendLabel: `${fedMeetingData.daysUntil} days away`,
           trendDirection:
@@ -861,8 +831,8 @@ export default function MetricGrid({
 
       try {
         const fedRateData = await getCurrentFedRate();
-        updatedMetrics[8] = {
-          ...updatedMetrics[8],
+        updatedMetrics[7] = {
+          ...updatedMetrics[7],
           value: fedRateData.currentRange,
           trendLabel: fedRateData.label || "Target range",
           trendDirection: "flat",
@@ -874,8 +844,8 @@ export default function MetricGrid({
 
       try {
         const iefYieldData = await getIefDividendYield();
-        updatedMetrics[9] = {
-          ...updatedMetrics[9],
+        updatedMetrics[8] = {
+          ...updatedMetrics[8],
           value: iefYieldData.dividendYield,
           trendLabel: iefYieldData.label || "12m trailing yield",
           trendDirection: "flat",
@@ -886,23 +856,23 @@ export default function MetricGrid({
       }
 
       if (ivvData && usdclpData) {
-        updatedMetrics[6] = {
-          ...updatedMetrics[6],
+        updatedMetrics[5] = {
+          ...updatedMetrics[5],
           value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpData.changePercent / 100) - 1) * 100).toFixed(4)}%`,
           trendLabel: "TEST",
         };
       }
 
       if (ivvData) {
-        updatedMetrics[7] = {
-          ...updatedMetrics[7],
+        updatedMetrics[6] = {
+          ...updatedMetrics[6],
           value: `${((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100).toFixed(4)}%`,
           trendLabel: "TEST",
         };
       }
 
       // Fetch stocks from tickers array; do not fail all cards if one ticker fails
-      const baseMetricsCount = 10; // Indices 0-9 are base metrics
+      const baseMetricsCount = 9; // Indices 0-8 are base metrics
       const tickerDataArray = await Promise.allSettled(
         tickers.map((ticker) => getStockData(ticker.symbol)),
       );

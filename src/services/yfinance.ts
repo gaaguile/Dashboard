@@ -57,13 +57,6 @@ interface IefYieldData {
   label?: string;
 }
 
-interface UsdClpObservadoData {
-  value: number;
-  label?: string;
-  effectiveDate?: string;
-  source?: string;
-}
-
 export async function getStockData(symbol: string): Promise<StockData> {
   try {
     const response = await fetch(
@@ -166,24 +159,6 @@ export async function getIefDividendYield(): Promise<IefYieldData> {
     };
   } catch (error) {
     console.error("Error fetching IEF dividend yield:", error);
-    throw error;
-  }
-}
-
-export async function getUsdClpObservado(): Promise<UsdClpObservadoData> {
-  try {
-    const response = await fetch(`${API_BASE}/usdclp-observado`);
-    if (!response.ok) throw new Error("Failed to fetch USDCLP observado");
-
-    const data = await response.json();
-    return {
-      value: Number(data.value || 0),
-      label: data.label || "Mon-Fri 16:00 CLT",
-      effectiveDate: data.effectiveDate,
-      source: data.source,
-    };
-  } catch (error) {
-    console.error("Error fetching USDCLP observado:", error);
     throw error;
   }
 }
