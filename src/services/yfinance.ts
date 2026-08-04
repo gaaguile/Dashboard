@@ -1,25 +1,45 @@
-// Determine API base URL based on environment
-const getApiBase = () => {
+// Determine API base URL candidates based on environment.
+const getApiBaseCandidates = (): string[] => {
   const envBase = (import.meta as any)?.env?.VITE_API_BASE;
   if (typeof envBase === "string" && envBase.trim()) {
-    return envBase.trim().replace(/\/$/, "");
+    return [envBase.trim().replace(/\/$/, "")];
   }
 
-  // Local preview/build can run without Vite proxy; point directly to the API server.
+  // In localhost contexts, try Vite proxy/same-origin first, then direct local API.
   if (typeof window !== "undefined") {
     const isLocalHost =
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1";
-    if (isLocalHost && window.location.port !== "3002") {
-      return "http://localhost:3002/api";
+    if (isLocalHost) {
+      return ["/api", "http://localhost:3002/api"];
     }
   }
 
   // Default for production and same-origin deployments.
-  return "/api";
+  return ["/api"];
 };
 
-const API_BASE = getApiBase();
+const API_BASE_CANDIDATES = getApiBaseCandidates();
+
+async function fetchFromApi(pathAndQuery: string): Promise<Response> {
+  const errors: string[] = [];
+
+  for (const base of API_BASE_CANDIDATES) {
+    const url = `${base}${pathAndQuery}`;
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return response;
+      }
+      errors.push(`${url} -> HTTP ${response.status}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`${url} -> ${message}`);
+    }
+  }
+
+  throw new Error(`API request failed: ${errors.join(" | ")}`);
+}
 
 interface WeeklyNetReturnPoint {
   date: string;
@@ -59,10 +79,9 @@ interface IefYieldData {
 
 export async function getStockData(symbol: string): Promise<StockData> {
   try {
-    const response = await fetch(
-      `${API_BASE}/stock?symbol=${encodeURIComponent(symbol)}`,
+    const response = await fetchFromApi(
+      `/stock?symbol=${encodeURIComponent(symbol)}`,
     );
-    if (!response.ok) throw new Error("Failed to fetch stock data");
 
     const data = await response.json();
     return {
@@ -94,10 +113,9 @@ export async function getForexData(symbol: string): Promise<{
   lastPrice: number;
 }> {
   try {
-    const response = await fetch(
-      `${API_BASE}/forex?symbol=${encodeURIComponent(symbol)}`,
+    const response = await fetchFromApi(
+      `/forex?symbol=${encodeURIComponent(symbol)}`,
     );
-    if (!response.ok) throw new Error("Failed to fetch forex data");
 
     const data = await response.json();
     return {
@@ -117,8 +135,7 @@ export async function getFEDMeetingDate(): Promise<{
   daysUntil: number;
 }> {
   try {
-    const response = await fetch(`${API_BASE}/fed-meeting`);
-    if (!response.ok) throw new Error("Failed to fetch FED meeting date");
+    const response = await fetchFromApi(`/fed-meeting`);
 
     const data = await response.json();
     return {
@@ -133,8 +150,7 @@ export async function getFEDMeetingDate(): Promise<{
 
 export async function getCurrentFedRate(): Promise<FedRateData> {
   try {
-    const response = await fetch(`${API_BASE}/fed-rate`);
-    if (!response.ok) throw new Error("Failed to fetch Fed rate");
+    const response = await fetchFromApi(`/fed-rate`);
 
     const data = await response.json();
     return {
@@ -149,8 +165,7 @@ export async function getCurrentFedRate(): Promise<FedRateData> {
 
 export async function getIefDividendYield(): Promise<IefYieldData> {
   try {
-    const response = await fetch(`${API_BASE}/ief-yield`);
-    if (!response.ok) throw new Error("Failed to fetch IEF dividend yield");
+    const response = await fetchFromApi(`/ief-yield`);
 
     const data = await response.json();
     return {
@@ -171,12 +186,9 @@ export async function getETFWeeklyNetTotalReturn(
   symbol: string,
 ): Promise<WeeklyNetReturnSeriesResponse> {
   try {
-    const response = await fetch(
-      `${API_BASE}/ivv-weekly-net-return?symbol=${encodeURIComponent(symbol)}`,
+    const response = await fetchFromApi(
+      `/ivv-weekly-net-return?symbol=${encodeURIComponent(symbol)}`,
     );
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${symbol} weekly net total return data`);
-    }
 
     const data = await response.json();
     return {

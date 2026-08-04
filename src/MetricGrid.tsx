@@ -366,11 +366,19 @@ function MetricCard({ metric }: { metric: Metric }): React.JSX.Element {
 function NetReturnLineChart({
   usdPoints,
   clpPoints,
+  benchmarkPoints = [],
+  benchmarkLabel = "Benchmark Net Return",
 }: {
   usdPoints: IVVChartPoint[];
   clpPoints: IVVChartPoint[];
+  benchmarkPoints?: IVVChartPoint[];
+  benchmarkLabel?: string;
 }): React.JSX.Element {
-  if (usdPoints.length < 2 && clpPoints.length < 2) {
+  if (
+    usdPoints.length < 2 &&
+    clpPoints.length < 2 &&
+    benchmarkPoints.length < 2
+  ) {
     return <p style={S.chartEmpty}>Not enough data to render chart.</p>;
   }
 
@@ -379,15 +387,24 @@ function NetReturnLineChart({
   const padX = 42;
   const padY = 24;
 
-  const allPoints = [...usdPoints, ...clpPoints];
+  const allPoints = [...usdPoints, ...clpPoints, ...benchmarkPoints];
   const minY = Math.min(...allPoints.map((p) => p.cumulativeReturnPct));
   const maxY = Math.max(...allPoints.map((p) => p.cumulativeReturnPct));
   const spanY = maxY - minY || 1;
 
+  const parseDateTs = (dateStr: string): number =>
+    new Date(`${dateStr}T00:00:00`).getTime();
+  const allTimestamps = allPoints
+    .map((p) => parseDateTs(p.date))
+    .filter((ts) => Number.isFinite(ts));
+  const minTs = allTimestamps.length > 0 ? Math.min(...allTimestamps) : 0;
+  const maxTs = allTimestamps.length > 0 ? Math.max(...allTimestamps) : 1;
+  const spanTs = Math.max(maxTs - minTs, 1);
+
   const mapToXY = (points: IVVChartPoint[]) =>
-    points.map((p, i) => {
-      const x =
-        padX + (i / Math.max(points.length - 1, 1)) * (width - padX * 2);
+    points.map((p) => {
+      const ts = parseDateTs(p.date);
+      const x = padX + ((ts - minTs) / spanTs) * (width - padX * 2);
       const y =
         height -
         padY -
@@ -397,6 +414,7 @@ function NetReturnLineChart({
 
   const usdXY = mapToXY(usdPoints);
   const clpXY = mapToXY(clpPoints);
+  const benchmarkXY = mapToXY(benchmarkPoints);
 
   const buildPath = (points: Array<IVVChartPoint & { x: number; y: number }>) =>
     points
@@ -429,23 +447,22 @@ function NetReturnLineChart({
     "";
   const boundaryDateY = height - padY - 20;
 
-  const axisPoints =
-    usdPoints.length >= clpPoints.length ? usdPoints : clpPoints;
-  const yearlyJanuaryTicks = axisPoints
-    .map((p, i) => ({ point: p, index: i }))
-    .filter(({ point }) => {
-      const d = new Date(`${point.date}T00:00:00`);
-      return Number.isFinite(d.getTime()) && d.getMonth() === 0;
-    })
-    .map(({ point, index }) => {
-      const x =
-        padX +
-        (index / Math.max(axisPoints.length - 1, 1)) * (width - padX * 2);
-      const year = point.date.slice(0, 4);
-      return { x, year };
-    })
-    // Keep a small minimum spacing to avoid label overlap on short ranges.
-    .filter((tick, i, arr) => i === 0 || tick.x - arr[i - 1].x >= 28);
+  const startYear = Number(axisStartDate.slice(0, 4));
+  const endYear = Number(axisEndDate.slice(0, 4));
+  const yearlyJanuaryTicks: Array<{ x: number; year: string }> =
+    Number.isFinite(startYear) && Number.isFinite(endYear)
+      ? Array.from({ length: Math.max(endYear - startYear + 1, 0) }, (_, i) => {
+          const year = startYear + i;
+          const ts = new Date(`${year}-01-01T00:00:00`).getTime();
+          const x = padX + ((ts - minTs) / spanTs) * (width - padX * 2);
+          return { x, year: String(year) };
+        }).filter(
+          (tick, i, arr) =>
+            tick.x >= padX &&
+            tick.x <= width - padX &&
+            (i === 0 || tick.x - arr[i - 1].x >= 28),
+        )
+      : [];
 
   return (
     <>
@@ -482,6 +499,21 @@ function NetReturnLineChart({
           />
           CLP Net Return
         </span>
+        {benchmarkPoints.length > 1 && (
+          <span
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <span
+              style={{
+                width: 16,
+                height: 2,
+                background: "#34d399",
+                display: "inline-block",
+              }}
+            />
+            {benchmarkLabel}
+          </span>
+        )}
       </div>
 
       <svg
@@ -592,6 +624,37 @@ function NetReturnLineChart({
           </>
         )}
 
+        {benchmarkXY.length > 1 && (
+          <>
+            <path
+              d={buildPath(benchmarkXY)}
+              fill="none"
+              stroke="#34d399"
+              strokeWidth="2.5"
+            />
+            <circle
+              cx={benchmarkXY[benchmarkXY.length - 1].x}
+              cy={benchmarkXY[benchmarkXY.length - 1].y}
+              r="4"
+              fill="#34d399"
+            />
+            <text
+              x={benchmarkXY[benchmarkXY.length - 1].x - 8}
+              y={benchmarkXY[benchmarkXY.length - 1].y - 8}
+              fill="#34d399"
+              fontSize="11"
+              fontWeight="700"
+              textAnchor="end"
+            >
+              IEF{" "}
+              {benchmarkXY[benchmarkXY.length - 1].cumulativeReturnPct.toFixed(
+                2,
+              )}
+              %
+            </text>
+          </>
+        )}
+
         <text
           x={padX}
           y={boundaryDateY}
@@ -671,6 +734,9 @@ export default function MetricGrid({
   const [iywWeeklyNetReturnClp, setIywWeeklyNetReturnClp] = useState<
     IVVChartPoint[]
   >([]);
+  const [iefWeeklyNetReturn, setIefWeeklyNetReturn] = useState<IVVChartPoint[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [ivvLiveWtd, setIvvLiveWtd] = useState<number | null>(null);
   const [ivvLiveClpWtd, setIvvLiveClpWtd] = useState<number | null>(null);
@@ -755,6 +821,14 @@ export default function MetricGrid({
         };
       } else {
         console.error("Error fetching IVV core data:", ivvResult);
+        updatedMetrics[0] = {
+          ...updatedMetrics[0],
+          value: "N/A",
+          trendLabel: "Unavailable",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+          hideTrend: true,
+        };
       }
 
       if (iywData) {
@@ -784,6 +858,14 @@ export default function MetricGrid({
         };
       } else {
         console.error("Error fetching USDCLP forex core data:", usdclpResult);
+        updatedMetrics[1] = {
+          ...updatedMetrics[1],
+          value: "N/A",
+          trendLabel: "Unavailable",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+          hideTrend: true,
+        };
       }
 
       if (ivvData && usdclpData) {
@@ -826,7 +908,13 @@ export default function MetricGrid({
         };
       } catch (fedError) {
         console.error("Error fetching FED meeting date:", fedError);
-        // Keep the default "TBD" value
+        updatedMetrics[4] = {
+          ...updatedMetrics[4],
+          value: "N/A",
+          trendLabel: "Unavailable",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
       }
 
       try {
@@ -840,6 +928,13 @@ export default function MetricGrid({
         };
       } catch (fedRateError) {
         console.error("Error fetching Fed rate:", fedRateError);
+        updatedMetrics[7] = {
+          ...updatedMetrics[7],
+          value: "N/A",
+          trendLabel: "Unavailable",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
       }
 
       try {
@@ -853,6 +948,13 @@ export default function MetricGrid({
         };
       } catch (iefYieldError) {
         console.error("Error fetching IEF yield:", iefYieldError);
+        updatedMetrics[8] = {
+          ...updatedMetrics[8],
+          value: "N/A",
+          trendLabel: "Unavailable",
+          trendDirection: "flat",
+          trendSentiment: "neutral",
+        };
       }
 
       if (ivvData && usdclpData) {
@@ -925,7 +1027,7 @@ export default function MetricGrid({
   const fetchEtfWeeklyNetReturn = async (
     symbol: string,
     setUsd: React.Dispatch<React.SetStateAction<IVVChartPoint[]>>,
-    setClp: React.Dispatch<React.SetStateAction<IVVChartPoint[]>>,
+    setClp?: React.Dispatch<React.SetStateAction<IVVChartPoint[]>>,
   ) => {
     try {
       const { pointsUsd, pointsClp } = await getETFWeeklyNetTotalReturn(symbol);
@@ -935,16 +1037,20 @@ export default function MetricGrid({
           cumulativeReturnPct: p.cumulativeReturnPct,
         })),
       );
-      setClp(
-        pointsClp.map((p: WeeklyNetReturnPoint) => ({
-          date: p.date,
-          cumulativeReturnPct: p.cumulativeReturnPct,
-        })),
-      );
+      if (setClp) {
+        setClp(
+          pointsClp.map((p: WeeklyNetReturnPoint) => ({
+            date: p.date,
+            cumulativeReturnPct: p.cumulativeReturnPct,
+          })),
+        );
+      }
     } catch (error) {
       console.error(`Error fetching ${symbol} weekly net return chart:`, error);
       setUsd([]);
-      setClp([]);
+      if (setClp) {
+        setClp([]);
+      }
     }
   };
 
@@ -961,6 +1067,7 @@ export default function MetricGrid({
       setIywWeeklyNetReturn,
       setIywWeeklyNetReturnClp,
     );
+    fetchEtfWeeklyNetReturn("IEF", setIefWeeklyNetReturn);
   }, [tickers]);
 
   const handleRefresh = () => {
@@ -975,6 +1082,7 @@ export default function MetricGrid({
       setIywWeeklyNetReturn,
       setIywWeeklyNetReturnClp,
     );
+    fetchEtfWeeklyNetReturn("IEF", setIefWeeklyNetReturn);
     if (onRefreshProp) onRefreshProp();
   };
 
@@ -1000,17 +1108,52 @@ export default function MetricGrid({
   const iywWeeklyNetReturnClpFrom2023 = normalizeFromZero(
     iywWeeklyNetReturnClp.filter((p) => p.date >= START_2023),
   );
+  const iefWeeklyNetReturnFrom2023 = normalizeFromZero(
+    iefWeeklyNetReturn.filter((p) => p.date >= START_2023),
+  );
 
   const computePeriodReturn = (
     points: IVVChartPoint[],
     periodStartDate: string,
   ): number | null => {
     if (points.length === 0) return null;
-    const periodStartPoint = points.find((p) => p.date >= periodStartDate);
-    if (!periodStartPoint) return null;
+    const parsedPoints = points
+      .map((p) => ({
+        ...p,
+        ts: new Date(`${p.date}T00:00:00`).getTime(),
+      }))
+      .filter((p) => Number.isFinite(p.ts))
+      .sort((a, b) => a.ts - b.ts);
+    if (parsedPoints.length === 0) return null;
 
-    const latest = points[points.length - 1].cumulativeReturnPct;
-    const start = periodStartPoint.cumulativeReturnPct;
+    const startTs = new Date(`${periodStartDate}T00:00:00`).getTime();
+    if (!Number.isFinite(startTs)) return null;
+
+    const latest = parsedPoints[parsedPoints.length - 1].cumulativeReturnPct;
+    if (parsedPoints[parsedPoints.length - 1].ts < startTs) return null;
+
+    let start = parsedPoints[0].cumulativeReturnPct;
+    if (startTs <= parsedPoints[0].ts) {
+      start = parsedPoints[0].cumulativeReturnPct;
+    } else {
+      for (let i = 0; i < parsedPoints.length - 1; i++) {
+        const left = parsedPoints[i];
+        const right = parsedPoints[i + 1];
+        if (startTs === left.ts) {
+          start = left.cumulativeReturnPct;
+          break;
+        }
+        if (startTs > left.ts && startTs <= right.ts) {
+          const span = right.ts - left.ts;
+          const weight = span > 0 ? (startTs - left.ts) / span : 0;
+          start =
+            left.cumulativeReturnPct +
+            (right.cumulativeReturnPct - left.cumulativeReturnPct) * weight;
+          break;
+        }
+      }
+    }
+
     const latestFactor = 1 + latest / 100;
     const startFactor = 1 + start / 100;
     if (startFactor <= 0) return null;
@@ -1110,7 +1253,7 @@ export default function MetricGrid({
             WTD USDCLP (Daily Live): {formatReturn(ivvClpWtd)}
           </span>
           <span style={S.chartKpiBadge}>
-            MTD USDCLP : {formatReturn(ivvClpMtd)}
+            MTD USDCLP: {formatReturn(ivvClpMtd)}
           </span>
           <span style={S.chartKpiBadge}>
             YTD USDCLP : {formatReturn(ivvClpYtd)}
@@ -1119,6 +1262,8 @@ export default function MetricGrid({
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturn}
           clpPoints={ivvWeeklyNetReturnClp}
+          benchmarkPoints={iefWeeklyNetReturn}
+          benchmarkLabel="IEF USD Net Return"
         />
       </div>
 
@@ -1135,6 +1280,8 @@ export default function MetricGrid({
         <NetReturnLineChart
           usdPoints={ivvWeeklyNetReturnFrom2023}
           clpPoints={ivvWeeklyNetReturnClpFrom2023}
+          benchmarkPoints={iefWeeklyNetReturnFrom2023}
+          benchmarkLabel="IEF USD Net Return"
         />
       </div>
 
@@ -1163,6 +1310,8 @@ export default function MetricGrid({
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturn}
           clpPoints={iywWeeklyNetReturnClp}
+          benchmarkPoints={iefWeeklyNetReturn}
+          benchmarkLabel="IEF USD Net Return"
         />
       </div>
 
@@ -1179,6 +1328,8 @@ export default function MetricGrid({
         <NetReturnLineChart
           usdPoints={iywWeeklyNetReturnFrom2023}
           clpPoints={iywWeeklyNetReturnClpFrom2023}
+          benchmarkPoints={iefWeeklyNetReturnFrom2023}
+          benchmarkLabel="IEF USD Net Return"
         />
       </div>
     </div>

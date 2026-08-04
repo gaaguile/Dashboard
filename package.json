@@ -6,8 +6,13 @@
     "server": "tsx server.ts",
     "clean": "rimraf dist",
     "build": "npm run clean && vite build",
-    "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist"
+    "preview": "concurrently -k -n WEB,API -c blue,green \"npm:preview:web\" \"npm:dev:api\"",
+    "preview:web": "vite preview",
+    "monitor:cloudflare": "node src/monitor.js",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "name": "dashboard",
+    "version": "1.0.0",
+    "type": "module"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
@@ -25,5 +30,6 @@
     "tsx": "^4.23.0",
     "vite": "^8.1.3",
     "wrangler": "^3.80.0"
-  }
+  },
+  "type": "module"
 }
