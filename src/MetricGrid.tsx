@@ -151,9 +151,17 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: "1rem",
+    flexWrap: "wrap" as const,
     marginBottom: "2rem",
     paddingBottom: "1.5rem",
     borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
+  } satisfies CSSProperties,
+
+  headerLeft: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.9rem",
   } satisfies CSSProperties,
 
   title: {
@@ -171,6 +179,43 @@ const S = {
     color: "var(--text-secondary)",
     margin: "6px 0 0",
     fontWeight: 500,
+  } satisfies CSSProperties,
+
+  navMenu: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    flexWrap: "wrap" as const,
+  } satisfies CSSProperties,
+
+  navList: {
+    listStyle: "none",
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: 0,
+    margin: 0,
+    flexWrap: "wrap" as const,
+  } satisfies CSSProperties,
+
+  navLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "0.55rem 0.9rem",
+    borderRadius: 999,
+    textDecoration: "none",
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#e2e8f0",
+    background: "rgba(15, 23, 42, 0.32)",
+    border: "1px solid rgba(148, 163, 184, 0.25)",
+  } satisfies CSSProperties,
+
+  navLinkActive: {
+    color: "#0f172a",
+    background: "linear-gradient(135deg, #67e8f9 0%, #22d3ee 100%)",
+    border: "1px solid rgba(34, 211, 238, 0.35)",
+    boxShadow: "0 8px 20px rgba(34, 211, 238, 0.18)",
   } satisfies CSSProperties,
 
   refreshBtn: {
@@ -1205,9 +1250,29 @@ export default function MetricGrid({
   return (
     <div>
       <div style={S.header}>
-        <div>
-          <p style={S.title}>{title}</p>
-          <p style={S.subtitle}>{subtitle}</p>
+        <div style={S.headerLeft}>
+          <div>
+            <p style={S.title}>{title}</p>
+            <p style={S.subtitle}>{subtitle}</p>
+          </div>
+          <nav aria-label="Primary" style={S.navMenu}>
+            <ul style={S.navList}>
+              <li>
+                <a
+                  href="/"
+                  aria-current="page"
+                  style={{ ...S.navLink, ...S.navLinkActive }}
+                >
+                  Dashboard
+                </a>
+              </li>
+              <li>
+                <a href="/etf-watchlist.html" style={S.navLink}>
+                  ETF Watchlist
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
         <div style={S.buttonGroup}>
           <button onClick={handleRefresh} style={S.refreshBtn} data-refresh-btn>

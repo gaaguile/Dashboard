@@ -9,13 +9,15 @@
     "preview": "concurrently -k -n WEB,API -c blue,green \"npm:preview:web\" \"npm:dev:api\"",
     "preview:web": "vite preview",
     "monitor:cloudflare": "node src/monitor.js",
-    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy": "npm run build && npx wrangler pages deploy dist",
+    "deploy:pages": "npx wrangler pages deploy dist",
     "name": "dashboard",
     "version": "1.0.0",
     "type": "module"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
+    "highcharts": "^13.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "yahoo-finance2": "^3.15.4"
@@ -29,7 +31,7 @@
     "rimraf": "^6.1.3",
     "tsx": "^4.23.0",
     "vite": "^8.1.3",
-    "wrangler": "^3.80.0"
+    "wrangler": "^4.119.0"
   },
   "type": "module"
 }

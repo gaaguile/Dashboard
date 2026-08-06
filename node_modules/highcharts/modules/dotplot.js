@@ -1,0 +1,13 @@
+!/**
+ * Highcharts JS v13.0.0 (2026-06-11)
+ * @module highcharts/modules/dotplot
+ * @requires highcharts
+ *
+ * Dot plot series type for Highcharts
+ *
+ * (c) 2010-2026 Highsoft AS
+ * Author: Torstein Hønsi
+ *
+ * A commercial license may be required depending on use,
+ * see www.highcharts.com/license
+ */function(e,t){"object"==typeof exports&&"object"==typeof module?module.exports=t(e._Highcharts,e._Highcharts.SeriesRegistry):"function"==typeof define&&define.amd?define("highcharts/modules/dotplot",["highcharts/highcharts"],function(e){return t(e,e.SeriesRegistry)}):"object"==typeof exports?exports["highcharts/modules/dotplot"]=t(e._Highcharts,e._Highcharts.SeriesRegistry):e.Highcharts=t(e.Highcharts,e.Highcharts.SeriesRegistry)}("u"<typeof window?this:window,(e,t)=>(()=>{"use strict";var r={512:e=>{e.exports=t},944:t=>{t.exports=e}},s={};function i(e){var t=s[e];if(void 0!==t)return t.exports;var o=s[e]={exports:{}};return r[e](o,o.exports,i),o.exports}i.n=e=>{var t=e&&e.__esModule?()=>e.default:()=>e;return i.d(t,{a:t}),t},i.d=(e,t)=>{for(var r in t)i.o(t,r)&&!i.o(e,r)&&Object.defineProperty(e,r,{enumerable:!0,get:t[r]})},i.o=(e,t)=>Object.prototype.hasOwnProperty.call(e,t);var o={};i.d(o,{default:()=>l});var a=i(944),h=i.n(a),d=i(512),p=i.n(d);let{column:n}=p().seriesTypes;class c extends n{drawPoints(){let e=this.options,t=this.chart.renderer,r=e.marker,s=this.points.reduce((e,t)=>e+Math.abs(t.y||0),0),i=this.points.reduce((e,t)=>e+(t.shapeArgs?.height||0),0),o=e.itemPadding||0,h=this.points[0]?.shapeArgs?.width||0,d=e.slotsPerBar,p=h;if(!(0,a.isNumber)(d))for(d=1;d<s&&!(s/d<i/p*1.2);)p=h/++d;let n=i*d/s;for(let e of this.points){let s=e.marker||{},i=s.symbol||r.symbol,h=(0,a.pick)(s.radius,r.radius),c="rect"!==i?n:p,l=e.shapeArgs||{},g=(l.x||0)+((l.width||0)-d*c)/2,u=Math.abs(e.y??0),f=l.y||0,y=l.height||0,m,b=g,v=e.negative?f:f+y-n,x=0;e.graphics=m=e.graphics||[];let A=e.pointAttr?e.pointAttr[e.selected?"selected":""]||this.pointAttr[""]:this.pointAttribs(e,e.selected&&"select");if(delete A.r,this.chart.styledMode&&(delete A.stroke,delete A["stroke-width"]),"number"==typeof e.y){e.graphic||(e.graphic=t.g("point").add(this.group));for(let r=0;r<u;r++){let s={x:b+c*o,y:v+n*o,width:c*(1-2*o),height:n*(1-2*o),r:h},p=m[r];p?p.animate(s):p=t.symbol(i).attr((0,a.extend)(s,A)).add(e.graphic),p.isActive=!0,m[r]=p,b+=c,++x>=d&&(x=0,b=g,v=e.negative?v+n:v-n)}}let w=-1;for(let e of m)++w,e&&(e.isActive?e.isActive=!1:(e.destroy(),m.splice(w,1)))}}}c.defaultOptions=(0,a.merge)(n.defaultOptions,{itemPadding:.1,marker:{symbol:"circle",states:{hover:{},select:{}}},slotsPerBar:void 0}),(0,a.extend)(c.prototype,{markerAttribs:void 0}),p().registerSeriesType("dotplot",c);let l=h();return o.default})());

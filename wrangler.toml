@@ -1,3 +1,13 @@
 name = "dashboard"
 compatibility_date = "2024-12-16"
 pages_build_output_dir = "dist"
+
+[vars]
+ETF_WATCHLIST_KV_KEY = "drawdown-weekly.json"
+ETF_WATCHLIST_SOURCE_PATH = "/etf-watchlist/drawdown-weekly.json"
+
+[[kv_namespaces]]
+binding = "ETF_DATA_KV"
+# Cloudflare KV namespace IDs.
+id = "ba4a6d19d0a24b4cb3c34430699f4a3b"
+preview_id = "7e9f95d56bdf4d43b4f2514f1c451d95"

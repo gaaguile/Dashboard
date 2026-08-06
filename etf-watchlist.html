@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ETF Watchlist</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page-bg: #020617;
+        --panel-bg: rgba(15, 23, 42, 0.88);
+        --panel-border: rgba(148, 163, 184, 0.2);
+        --panel-shadow: 0 22px 60px rgba(2, 6, 23, 0.45);
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --accent: #22d3ee;
+        --accent-strong: #67e8f9;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text-primary);
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(34, 211, 238, 0.16),
+            transparent 34%
+          ),
+          linear-gradient(180deg, #0f172a 0%, var(--page-bg) 100%);
+      }
+
+      .shell {
+        width: min(1280px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .panel {
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        box-shadow: var(--panel-shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 24px;
+        margin-bottom: 18px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        font-weight: 700;
+      }
+
+      .subtitle {
+        margin: 8px 0 0;
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+      }
+
+      .nav-list {
+        list-style: none;
+        display: flex;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        flex-wrap: wrap;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+        color: var(--text-primary);
+        background: rgba(15, 23, 42, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .nav-link.active {
+        color: #0f172a;
+        background: linear-gradient(
+          135deg,
+          var(--accent-strong),
+          var(--accent)
+        );
+        border-color: rgba(34, 211, 238, 0.45);
+      }
+
+      .content {
+        padding: 0 24px 24px;
+      }
+
+      .chart-wrap {
+        min-height: 780px;
+        padding: 18px;
+      }
+
+      .status {
+        display: grid;
+        place-items: center;
+        min-height: 640px;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        text-align: center;
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100% - 20px, 100%);
+          padding-top: 18px;
+        }
+
+        .header,
+        .content {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+
+        .chart-wrap {
+          min-height: 560px;
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel header">
+        <div>
+          <h1 class="title">S&P500 Sector ETF Watchlist</h1>
+          <p class="subtitle">Weekly drawdown chart.</p>
+        </div>
+        <nav aria-label="Primary navigation">
+          <ul class="nav-list">
+            <li><a class="nav-link" href="/">Dashboard</a></li>
+            <li>
+              <a
+                class="nav-link active"
+                href="/etf-watchlist.html"
+                aria-current="page"
+                >ETF Watchlist</a
+              >
+            </li>
+          </ul>
+        </nav>
+      </section>
+
+      <section class="panel content">
+        <div id="status" class="status">Loading chart data...</div>
+        <div id="container" class="chart-wrap" hidden></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import Highcharts from "highcharts/highstock";
+
+      async function loadWatchlist() {
+        const status = document.getElementById("status");
+        const container = document.getElementById("container");
+
+        try {
+          const response = await fetch("/api/etf-watchlist");
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const json = await response.json();
+
+          status.hidden = true;
+          container.hidden = false;
+
+          Highcharts.stockChart("container", {
+            chart: {
+              backgroundColor: "transparent",
+              spacingTop: 18,
+              spacingRight: 18,
+              spacingBottom: 18,
+              spacingLeft: 18,
+            },
+            rangeSelector: {
+              selected: 5,
+              inputEnabled: false,
+              buttonTheme: {
+                fill: "rgba(15, 23, 42, 0.6)",
+                stroke: "rgba(148, 163, 184, 0.2)",
+                r: 10,
+                style: {
+                  color: "#e2e8f0",
+                  fontWeight: "700",
+                },
+                states: {
+                  hover: {
+                    fill: "rgba(34, 211, 238, 0.28)",
+                    style: { color: "#e2e8f0" },
+                  },
+                  select: {
+                    fill: "#22d3ee",
+                    style: { color: "#0f172a" },
+                  },
+                },
+              },
+              labelStyle: { color: "#94a3b8" },
+            },
+            navigator: {
+              maskFill: "rgba(34, 211, 238, 0.12)",
+              outlineColor: "rgba(148, 163, 184, 0.28)",
+              series: { color: "#22d3ee", lineColor: "#22d3ee" },
+              xAxis: {
+                gridLineColor: "rgba(148, 163, 184, 0.12)",
+              },
+            },
+            scrollbar: {
+              barBackgroundColor: "rgba(34, 211, 238, 0.4)",
+              barBorderColor: "rgba(34, 211, 238, 0.4)",
+              buttonArrowColor: "#e2e8f0",
+              buttonBackgroundColor: "rgba(15, 23, 42, 0.7)",
+              buttonBorderColor: "rgba(148, 163, 184, 0.2)",
+              rifleColor: "#e2e8f0",
+              trackBackgroundColor: "rgba(15, 23, 42, 0.4)",
+              trackBorderColor: "rgba(148, 163, 184, 0.15)",
+            },
+            credits: { enabled: false },
+            title: {
+              text: json.title,
+              style: { color: "#e2e8f0" },
+            },
+            legend: {
+              enabled: true,
+              itemStyle: { color: "#e2e8f0" },
+              itemHoverStyle: { color: "#67e8f9" },
+            },
+            xAxis: {
+              lineColor: "rgba(148, 163, 184, 0.32)",
+              tickColor: "rgba(148, 163, 184, 0.32)",
+              labels: { style: { color: "#94a3b8" } },
+            },
+            yAxis: {
+              title: {
+                text: json.yAxisTitle,
+                style: { color: "#94a3b8" },
+              },
+              labels: {
+                format: "{value}%",
+                style: { color: "#94a3b8" },
+              },
+              gridLineColor: "rgba(148, 163, 184, 0.12)",
+            },
+            tooltip: {
+              valueDecimals: 2,
+              valueSuffix: "%",
+              backgroundColor: "rgba(15, 23, 42, 0.96)",
+              borderColor: "rgba(34, 211, 238, 0.4)",
+              style: { color: "#e2e8f0" },
+            },
+            plotOptions: {
+              series: {
+                turboThreshold: 0,
+              },
+            },
+            series: json.series,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unexpected error";
+          status.textContent = `Unable to load ETF watchlist data: ${message}`;
+        }
+      }
+
+      loadWatchlist();
+    </script>
+  </body>
+</html>

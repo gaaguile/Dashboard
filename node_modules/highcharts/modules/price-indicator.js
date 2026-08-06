@@ -1,0 +1,14 @@
+!/**
+ * Highstock JS v13.0.0 (2026-06-11)
+ * @module highcharts/modules/price-indicator
+ * @requires highcharts
+ * @requires highcharts/modules/stock
+ *
+ * (c) 2018-2026 Highsoft AS
+ * Author: Sebastian Bochan
+ *
+ * Price indicator for Highcharts Stock
+ *
+ * A commercial license may be required depending on use,
+ * see www.highcharts.com/license
+ */function(s,e){"object"==typeof exports&&"object"==typeof module?module.exports=e(s._Highcharts):"function"==typeof define&&define.amd?define("highcharts/modules/price-indicator",["highcharts/highcharts"],function(s){return e(s)}):"object"==typeof exports?exports["highcharts/modules/price-indicator"]=e(s._Highcharts):s.Highcharts=e(s.Highcharts)}("u"<typeof window?this:window,s=>(()=>{"use strict";var e,i={944:e=>{e.exports=s}},t={};function r(s){var e=t[s];if(void 0!==e)return e.exports;var o=t[s]={exports:{}};return i[s](o,o.exports,r),o.exports}r.n=s=>{var e=s&&s.__esModule?()=>s.default:()=>s;return r.d(e,{a:e}),e},r.d=(s,e)=>{for(var i in e)r.o(e,i)&&!r.o(s,i)&&Object.defineProperty(s,i,{enumerable:!0,get:e[i]})},r.o=(s,e)=>Object.prototype.hasOwnProperty.call(s,e);var o={};r.d(o,{default:()=>h});var a=r(944),l=r.n(a);let{composed:c}=l();e=l().Series,(0,a.pushUnique)(c,"PriceIndication")&&((0,a.addEvent)(e,"afterRender",function(){let s=this.options,e=s.lastVisiblePrice,i=s.lastPrice;if((e||i)&&"highcharts-navigator-series"!==s.id&&this.visible){let{points:t,xAxis:r,yAxis:o}=this,{cross:l,crosshair:c,crossLabel:h}=o,n=t.length,d=this.dataTable.rowCount,b=this.getColumn("x")[d-1],p=this.getColumn("y")[d-1]??this.getColumn("close")[d-1];if(i?.enabled&&(o.crosshair=o.options.crosshair=s.lastPrice,!this.chart.styledMode&&o.crosshair&&o.options.crosshair&&s.lastPrice&&(o.crosshair.color=o.options.crosshair.color=s.lastPrice.color||this.color),o.cross=this.lastPrice,this.lastPriceLabel&&this.lastPriceLabel.destroy(),delete o.crossLabel,o.drawCrosshair(void 0,{x:b,y:p,plotX:r.toPixels(b,!0),plotY:o.toPixels(p,!0)}),this.yAxis.cross&&(this.lastPrice=this.yAxis.cross,this.lastPrice.addClass("highcharts-color-"+this.colorIndex),this.lastPrice.y=p),this.lastPriceLabel=o.crossLabel),e?.enabled&&n>0){o.crosshair=o.options.crosshair=(0,a.merge)({color:"transparent"},s.lastVisiblePrice),o.cross=this.lastVisiblePrice;let e=t[n-1].isInside?t[n-1]:t[n-2];this.lastVisiblePriceLabel?.destroy(),delete o.crossLabel,o.drawCrosshair(void 0,e),o.cross&&(this.lastVisiblePrice=o.cross,e&&"number"==typeof e.y&&(this.lastVisiblePrice.y=e.y)),this.lastVisiblePriceLabel=o.crossLabel}o.crosshair=o.options.crosshair=c,o.cross=l,o.crossLabel=h}}),(0,a.addEvent)(e,"hide",function(){let s=this;["lastPrice","lastPriceLabel","lastVisiblePrice","lastVisiblePriceLabel"].forEach(e=>{s[e]?.hide()})}));let h=l();return o.default})());

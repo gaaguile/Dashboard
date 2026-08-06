@@ -1,0 +1,11 @@
+/**
+ * Highcharts JS v13.0.0 (2026-06-11)
+ * @module highcharts/themes/sand-signika
+ * @requires highcharts
+ *
+ * (c) 2009-2026 Highsoft AS
+ * Author: Torstein Hønsi
+ *
+ * A commercial license may be required depending on use,
+ * see www.highcharts.com/license
+ */import*as t from"../highcharts.js";var e,o,r={};r.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return r.d(e,{a:e}),e},r.d=(t,e)=>{for(var o in e)r.o(e,o)&&!r.o(t,o)&&Object.defineProperty(t,o,{enumerable:!0,get:e[o]})},r.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e);let a=t.default;var l=r.n(a);let{setOptions:s}=l();(e=o||(o={})).options={palette:{light:{backgroundColor:"#f7f7f7",colors:["#f45b5b","#8085e9","#8d4654","#7798BF","#aaeeee","#ff0066","#eeaaee","#55BF3B","#DF5353","#7798BF","#aaeeee"]}},chart:{backgroundColor:"light-dark(transparent, #141414)",style:{fontFamily:"Signika, serif"}},title:{style:{color:"var(--highcharts-neutral-color-100)",fontSize:"16px",fontWeight:"bold"}},subtitle:{style:{color:"var(--highcharts-neutral-color-100)"}},tooltip:{borderWidth:0,backgroundColor:"var(--highcharts-neutral-color-80)",style:{color:"var(--highcharts-background-color)"}},legend:{backgroundColor:"var(--highcharts-neutral-color-10)",itemStyle:{fontWeight:"bold",fontSize:"13px"}},xAxis:{labels:{style:{color:"var(--highcharts-neutral-color-60)"}}},yAxis:{labels:{style:{color:"var(--highcharts-neutral-color-60)"}}},plotOptions:{series:{shadow:!0,dataLabels:{color:"light-dark(#000, #fff)",style:{textOutline:"none"}}},map:{shadow:!1}},global:{buttonTheme:{fill:"light-dark(#fff, #000)",stroke:"var(--highcharts-neutral-color-20)",states:{select:{fill:"var(--highcharts-neutral-color-10)"}}}},rangeSelector:{buttonTheme:{"stroke-width":1}}},e.apply=function(){(0,a.createElement)("link",{href:"https://fonts.googleapis.com/css?family=Signika:400,700",rel:"stylesheet",type:"text/css"},null,document.getElementsByTagName("head")[0]),(0,a.addEvent)(l().Chart,"afterGetContainer",function(){this.container.style.background="url(https://www.highcharts.com/samples/graphics/sand.png)"}),s(e.options)};let n=o;l().theme=n.options,n.apply();let h=l();export{h as default};
