@@ -8,7 +8,6 @@
     "build": "npm run clean && vite build",
     "preview": "concurrently -k -n WEB,API -c blue,green \"npm:preview:web\" \"npm:dev:api\"",
     "preview:web": "vite preview",
-    "monitor:cloudflare": "node src/monitor.js",
     "deploy": "npm run build && npx wrangler pages deploy dist",
     "deploy:pages": "npx wrangler pages deploy dist",
     "name": "dashboard",
