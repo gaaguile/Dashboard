@@ -87,8 +87,8 @@ var ETF_DESCRIPTIONS = {
 };
 var CORS_HEADERS2 = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Refresh-Token"
+  "Access-Control-Allow-Methods": "GET, POST, HEAD, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Refresh-Token, X-Api-Key"
 };
 var JSON_HEADERS2 = {
   ...CORS_HEADERS2,
@@ -104,6 +104,33 @@ function getSeriesLabel(symbol) {
   return description ? `${symbol} - ${description}` : symbol;
 }
 __name(getSeriesLabel, "getSeriesLabel");
+function getBearerToken(authHeader) {
+  if (!authHeader || typeof authHeader !== "string") {
+    return null;
+  }
+  return authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+}
+__name(getBearerToken, "getBearerToken");
+async function getBodyToken(request) {
+  if (!request.body || request.method === "GET" || request.method === "HEAD") {
+    return null;
+  }
+  try {
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const payload = await request.clone().json();
+      return payload?.token || payload?.refresh_token || payload?.api_key || payload?.apikey || null;
+    }
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const form = await request.clone().formData();
+      return form.get("token") || form.get("refresh_token") || form.get("api_key") || form.get("apikey") || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+__name(getBodyToken, "getBodyToken");
 function getISOWeekKey(dateInput) {
   const date = new Date(
     Date.UTC(
@@ -217,17 +244,21 @@ async function buildWatchlistPayload(requestUrl) {
   };
 }
 __name(buildWatchlistPayload, "buildWatchlistPayload");
-function isAuthorized(request, env) {
+async function isAuthorized(request, env) {
   const configuredToken = env.ETF_WATCHLIST_REFRESH_TOKEN;
   if (!configuredToken) {
     return { ok: false, reason: "Missing ETF_WATCHLIST_REFRESH_TOKEN secret" };
   }
   const url = new URL(request.url);
   const queryToken = url.searchParams.get("token");
+  const queryApiKey = url.searchParams.get("api_key");
+  const queryApiKeyAlt = url.searchParams.get("apikey");
   const headerToken = request.headers.get("x-refresh-token");
+  const headerApiKey = request.headers.get("x-api-key");
   const authHeader = request.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  const providedToken = queryToken || headerToken || bearerToken;
+  const bearerToken = getBearerToken(authHeader);
+  const bodyToken = await getBodyToken(request);
+  const providedToken = queryToken || queryApiKey || queryApiKeyAlt || headerToken || headerApiKey || bearerToken || bodyToken;
   if (!providedToken || providedToken !== configuredToken) {
     return { ok: false, reason: "Unauthorized" };
   }
@@ -239,10 +270,10 @@ async function onRequest2(context) {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: CORS_HEADERS2 });
   }
-  if (!["GET", "POST"].includes(request.method)) {
+  if (!["GET", "POST", "HEAD"].includes(request.method)) {
     return jsonResponse2({ error: "Method not allowed" }, 405);
   }
-  const auth = isAuthorized(request, env);
+  const auth = await isAuthorized(request, env);
   if (!auth.ok) {
     return jsonResponse2({ error: auth.reason }, 401);
   }
@@ -852,7 +883,7 @@ async function onRequest8(context) {
 }
 __name(onRequest8, "onRequest");
 
-// ../.wrangler/tmp/pages-KvI9Tq/functionsRoutes-0.5564616237697206.mjs
+// ../.wrangler/tmp/pages-rjHHh0/functionsRoutes-0.6649219874321718.mjs
 var routes = [
   {
     routePath: "/api/etf-watchlist",

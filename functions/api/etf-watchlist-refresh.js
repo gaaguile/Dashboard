@@ -29,9 +29,9 @@ const ETF_DESCRIPTIONS = {
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, HEAD, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Refresh-Token",
+    "Content-Type, Authorization, X-Refresh-Token, X-Api-Key",
 };
 
 const JSON_HEADERS = {
@@ -47,6 +47,50 @@ function jsonResponse(body, status = 200) {
 function getSeriesLabel(symbol) {
   const description = ETF_DESCRIPTIONS[symbol];
   return description ? `${symbol} - ${description}` : symbol;
+}
+
+function getBearerToken(authHeader) {
+  if (!authHeader || typeof authHeader !== "string") {
+    return null;
+  }
+
+  return authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+}
+
+async function getBodyToken(request) {
+  if (!request.body || request.method === "GET" || request.method === "HEAD") {
+    return null;
+  }
+
+  try {
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const payload = await request.clone().json();
+      return (
+        payload?.token ||
+        payload?.refresh_token ||
+        payload?.api_key ||
+        payload?.apikey ||
+        null
+      );
+    }
+
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const form = await request.clone().formData();
+      return (
+        form.get("token") ||
+        form.get("refresh_token") ||
+        form.get("api_key") ||
+        form.get("apikey") ||
+        null
+      );
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function getISOWeekKey(dateInput) {
@@ -184,7 +228,7 @@ async function buildWatchlistPayload(requestUrl) {
   };
 }
 
-function isAuthorized(request, env) {
+async function isAuthorized(request, env) {
   const configuredToken = env.ETF_WATCHLIST_REFRESH_TOKEN;
   if (!configuredToken) {
     return { ok: false, reason: "Missing ETF_WATCHLIST_REFRESH_TOKEN secret" };
@@ -192,13 +236,22 @@ function isAuthorized(request, env) {
 
   const url = new URL(request.url);
   const queryToken = url.searchParams.get("token");
+  const queryApiKey = url.searchParams.get("api_key");
+  const queryApiKeyAlt = url.searchParams.get("apikey");
   const headerToken = request.headers.get("x-refresh-token");
+  const headerApiKey = request.headers.get("x-api-key");
   const authHeader = request.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+  const bearerToken = getBearerToken(authHeader);
+  const bodyToken = await getBodyToken(request);
 
-  const providedToken = queryToken || headerToken || bearerToken;
+  const providedToken =
+    queryToken ||
+    queryApiKey ||
+    queryApiKeyAlt ||
+    headerToken ||
+    headerApiKey ||
+    bearerToken ||
+    bodyToken;
   if (!providedToken || providedToken !== configuredToken) {
     return { ok: false, reason: "Unauthorized" };
   }
@@ -213,11 +266,11 @@ export async function onRequest(context) {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
-  if (!["GET", "POST"].includes(request.method)) {
+  if (!["GET", "POST", "HEAD"].includes(request.method)) {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const auth = isAuthorized(request, env);
+  const auth = await isAuthorized(request, env);
   if (!auth.ok) {
     return jsonResponse({ error: auth.reason }, 401);
   }
