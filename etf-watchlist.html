@@ -188,6 +188,45 @@
 
           const json = await response.json();
 
+          const getLatestDataTimestamp = () => {
+            const timestamps = (json.series || [])
+              .flatMap((series) =>
+                Array.isArray(series?.data)
+                  ? series.data.map((point) => Number(point?.[0]))
+                  : [],
+              )
+              .filter((value) => Number.isFinite(value));
+
+            if (timestamps.length === 0) {
+              return null;
+            }
+
+            return new Date(Math.max(...timestamps)).toISOString();
+          };
+
+          const formatUpdatedAt = (isoString) => {
+            if (!isoString) {
+              return "Last updated: unavailable";
+            }
+
+            const date = new Date(isoString);
+            if (Number.isNaN(date.getTime())) {
+              return "Last updated: unavailable";
+            }
+
+            return new Intl.DateTimeFormat("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            }).format(date);
+          };
+
+          const lastUpdatedIso = json.updatedAt || getLatestDataTimestamp();
+          const lastUpdatedLabel = formatUpdatedAt(lastUpdatedIso);
+
           status.hidden = true;
           container.hidden = false;
 
@@ -245,6 +284,15 @@
             title: {
               text: json.title,
               style: { color: "#e2e8f0" },
+            },
+            subtitle: {
+              text:
+                json.subtitle?.text && lastUpdatedIso
+                  ? `${json.subtitle.text} • Last updated: ${lastUpdatedLabel}`
+                  : lastUpdatedIso
+                    ? `Last updated: ${lastUpdatedLabel}`
+                    : "Last updated: unavailable",
+              style: { color: "#94a3b8", fontSize: "12px" },
             },
             legend: {
               enabled: true,
