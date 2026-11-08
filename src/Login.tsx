@@ -11,18 +11,38 @@ export default function Login({ onLogin }: LoginProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const VALID_USERNAME = "gaaguile";
-  const VALID_PASSWORD = "Sofia26-";
+  const validUsername =
+    (import.meta.env.VITE_DASHBOARD_USERNAME as string | undefined)?.trim() ||
+    "gaaguile";
+  const validPassword =
+    (import.meta.env.VITE_DASHBOARD_PASSWORD as string | undefined)?.trim() ||
+    "Sofia26-";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
+      setError("Username and password are required");
+      return;
+    }
+
     setIsLoading(true);
 
     // Simulate a brief loading delay
     setTimeout(() => {
-      if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-        localStorage.setItem("dashboardAuth", "true");
+      if (
+        trimmedUsername === validUsername &&
+        trimmedPassword === validPassword
+      ) {
+        try {
+          localStorage.setItem("dashboardAuth", "true");
+        } catch (storageError) {
+          console.error("Storage unavailable:", storageError);
+        }
         onLogin();
       } else {
         setError("Invalid username or password");

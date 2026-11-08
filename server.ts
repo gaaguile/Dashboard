@@ -1,10 +1,81 @@
 import express from "express";
 import cors from "cors";
 import YahooFinance from "yahoo-finance2";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 const app = express();
 const port = 3002;
 const yahooFinance = new YahooFinance();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DEFAULT_UF_CLP_RATE = 38000;
+const UF_RATE_FILE = path.join(__dirname, "public", "portfolio", "uf-clp-rate.json");
+
+async function getUfClpRateFromFile(): Promise<{ rate: number; updatedAt: string }> {
+  try {
+    const rawFile = await readFile(UF_RATE_FILE, "utf8");
+    const parsed = JSON.parse(rawFile) as {
+      rate?: number;
+      updatedAt?: string;
+    };
+
+    const rate = Number(parsed.rate ?? DEFAULT_UF_CLP_RATE);
+    const updatedAt = parsed.updatedAt ?? new Date().toISOString();
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return {
+        rate: DEFAULT_UF_CLP_RATE,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    return { rate, updatedAt };
+  } catch (error) {
+    console.warn("UF CLP rate file unavailable, using default.", error);
+    return {
+      rate: DEFAULT_UF_CLP_RATE,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+async function getUfClpRate(): Promise<{ rate: number; updatedAt: string }> {
+  try {
+    const html = await fetchTextWithUserAgent("https://www.uf-hoy.com/");
+    const match = html.match(
+      /<script[^>]*type="application\/json"[^>]*id="iuf-data"[^>]*>([\s\S]*?)<\/script>/i,
+    );
+
+    if (!match?.[1]) {
+      throw new Error("UF data block not found");
+    }
+
+    const payload = JSON.parse(match[1]) as {
+      current?: {
+        date?: string;
+        value?: number | string;
+      };
+    };
+
+    const rate = Number(payload?.current?.value ?? 0);
+    const date = String(payload?.current?.date ?? "").trim();
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Invalid current UF value");
+    }
+
+    const updatedAt = date
+      ? new Date(`${date}T17:00:00-03:00`).toISOString()
+      : new Date().toISOString();
+
+    return { rate, updatedAt };
+  } catch (error) {
+    console.warn("UF live feed unavailable, falling back to local file.", error);
+    return getUfClpRateFromFile();
+  }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -364,6 +435,88 @@ app.get("/api/ivv-weekly-net-return", async (_req, res) => {
   } catch (error) {
     console.error("Error fetching IVV weekly net return:", error);
     res.status(500).json({ error: "Failed to fetch IVV weekly net return" });
+  }
+});
+
+app.get("/api/portfolio", async (_req, res) => {
+  try {
+    const assetsFile = path.join(__dirname, "public", "portfolio", "assets.json");
+    const rawAssets = await readFile(assetsFile, "utf8");
+    const portfolio = JSON.parse(rawAssets) as {
+      financial_assets: Array<{
+        id: string;
+        symbol: string;
+        name: string;
+        quantity: number | string;
+        currency: string;
+      }>;
+    };
+
+    const ufRate = await getUfClpRate();
+    const usdClpQuote = await yahooFinance.quote("USDCLP=X");
+    const usdClpRate = Number(usdClpQuote.regularMarketPrice ?? 930);
+
+    const rows = await Promise.all(
+      (portfolio.financial_assets ?? []).map(async (asset) => {
+        const quantity = Number(asset.quantity ?? 0);
+        let marketValueClp = 0;
+
+        switch (asset.currency) {
+          case "CLP": {
+            marketValueClp = quantity;
+            break;
+          }
+          case "USD": {
+            if (asset.symbol === "Cash USD") {
+              marketValueClp = quantity * usdClpRate;
+              break;
+            }
+
+            const quote = await yahooFinance.quote(asset.symbol);
+            const marketPrice = Number(quote.regularMarketPrice ?? 0);
+            marketValueClp = quantity * marketPrice * usdClpRate;
+            break;
+          }
+          case "UF": {
+            marketValueClp = quantity * ufRate.rate;
+            break;
+          }
+          default:
+            marketValueClp = 0;
+        }
+
+        return {
+          id: asset.id,
+          symbol: asset.symbol,
+          name: asset.name,
+          quantity,
+          currency: asset.currency,
+          marketValueClp,
+        };
+      }),
+    );
+
+    const sortedRows = [...rows].sort(
+      (a, b) => Number(b.marketValueClp ?? 0) - Number(a.marketValueClp ?? 0),
+    );
+
+    const totalMarketValueClp = sortedRows.reduce(
+      (sum, row) => sum + Number(row.marketValueClp || 0),
+      0,
+    );
+
+    res.json({
+      summary: {
+        totalMarketValueClp,
+        usdClpRate,
+        ufClpRate: ufRate.rate,
+        ufRateUpdatedAt: ufRate.updatedAt,
+      },
+      rows: sortedRows,
+    });
+  } catch (error) {
+    console.error("Error generating portfolio values:", error);
+    res.status(500).json({ error: "Failed to build portfolio snapshot" });
   }
 });
 

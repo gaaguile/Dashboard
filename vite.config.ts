@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         etfWatchlist: resolve(__dirname, "etf-watchlist.html"),
+        portfolio: resolve(__dirname, "portfolio.html"),
       },
     },
   },

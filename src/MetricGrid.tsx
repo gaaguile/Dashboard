@@ -831,8 +831,8 @@ export default function MetricGrid({
         usdclpResult.status === "fulfilled" ? usdclpResult.value : null;
 
       if (ivvData) {
-        const ivvTodayReturn = ivvData.changePercent;
-        const ivv52wGain = ivvData.fiftyTwoWeekChangePercent;
+        const ivvTodayReturn = Number(ivvData.changePercent ?? 0);
+        const ivv52wGain = Number(ivvData.fiftyTwoWeekChangePercent ?? 0);
 
         updatedMetrics[0] = {
           ...updatedMetrics[0],
@@ -842,12 +842,10 @@ export default function MetricGrid({
               : updatedMetrics[0].value,
           lastPriceValue: updatedMetrics[0].currentPrice,
           currentPrice: `$${ivvData.currentPrice.toFixed(2)}`,
-          value: `${ivvTodayReturn}%`,
-          trendLabel: `${ivvTodayReturn}%`,
-          trendDirection:
-            parseFloat(ivvTodayReturn as any) >= 0 ? "up" : "down",
-          trendSentiment:
-            parseFloat(ivvTodayReturn as any) >= 0 ? "positive" : "negative",
+          value: `${ivvTodayReturn.toFixed(2)}%`,
+          trendLabel: `${ivvTodayReturn.toFixed(2)}%`,
+          trendDirection: ivvTodayReturn >= 0 ? "up" : "down",
+          trendSentiment: ivvTodayReturn >= 0 ? "positive" : "negative",
           hideTrend: true,
         };
 
@@ -859,9 +857,9 @@ export default function MetricGrid({
 
         updatedMetrics[3] = {
           ...updatedMetrics[3],
-          value: `${ivv52wGain}%`,
+          value: `${ivv52wGain.toFixed(2)}%`,
           trendLabel: `From $${ivvData.fiftyTwoWeekLow.toFixed(2)}`,
-          trendDirection: parseFloat(ivv52wGain as any) >= 0 ? "up" : "down",
+          trendDirection: ivv52wGain >= 0 ? "up" : "down",
           trendSentiment: "positive",
         };
       } else {
@@ -884,7 +882,7 @@ export default function MetricGrid({
       }
 
       if (usdclpData) {
-        const usdclpTodayReturn = usdclpData.changePercent;
+        const usdclpTodayReturn = Number(usdclpData.changePercent ?? 0);
         updatedMetrics[1] = {
           ...updatedMetrics[1],
           lastValue:
@@ -893,12 +891,11 @@ export default function MetricGrid({
               : updatedMetrics[1].value,
           lastPriceValue: updatedMetrics[1].currentPrice,
           currentPrice: `$${usdclpData.lastPrice.toFixed(2)}`,
-          value: `${usdclpTodayReturn}%`,
-          trendLabel: `${usdclpTodayReturn}%`,
-          trendDirection:
-            parseFloat(usdclpTodayReturn as any) >= 0 ? "up" : "down",
+          value: `${usdclpTodayReturn.toFixed(2)}%`,
+          trendLabel: `${usdclpTodayReturn.toFixed(2)}%`,
+          trendDirection: usdclpTodayReturn >= 0 ? "up" : "down",
           trendSentiment:
-            parseFloat(usdclpTodayReturn as any) >= 0 ? "positive" : "negative",
+            usdclpTodayReturn >= 0 ? "positive" : "negative",
           hideTrend: true,
         };
       } else {
@@ -1003,18 +1000,29 @@ export default function MetricGrid({
       }
 
       if (ivvData && usdclpData) {
+        const portfolioReturn =
+          ((1 + ivvData.changePercent / 100) *
+            (1 + usdclpData.changePercent / 100) -
+            1) *
+          100;
         updatedMetrics[5] = {
           ...updatedMetrics[5],
-          value: `${(((1 + ivvData.changePercent / 100) * (1 + usdclpData.changePercent / 100) - 1) * 100).toFixed(4)}%`,
-          trendLabel: "TEST",
+          value: `${portfolioReturn.toFixed(4)}%`,
+          trendLabel: "Portfolio",
+          trendDirection: portfolioReturn >= 0 ? "up" : "down",
+          trendSentiment: portfolioReturn >= 0 ? "positive" : "negative",
         };
       }
 
       if (ivvData) {
+        const fiftyTwoWeekVsPrice =
+          ((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100);
         updatedMetrics[6] = {
           ...updatedMetrics[6],
-          value: `${((ivvData.fiftyTwoWeekHigh / ivvData.currentPrice - 1) * 100).toFixed(4)}%`,
-          trendLabel: "TEST",
+          value: `${fiftyTwoWeekVsPrice.toFixed(4)}%`,
+          trendLabel: "52W vs current",
+          trendDirection: fiftyTwoWeekVsPrice >= 0 ? "up" : "down",
+          trendSentiment: fiftyTwoWeekVsPrice >= 0 ? "positive" : "negative",
         };
       }
 
@@ -1047,16 +1055,14 @@ export default function MetricGrid({
         }
 
         const stockData = stockResult.value;
+        const tickerChangePercent = Number(stockData.changePercent ?? 0);
         updatedMetrics[metricIndex] = {
           ...baseMetric,
           value: `$${stockData.currentPrice.toFixed(2)}`,
-          trendLabel: `${stockData.changePercent}%`,
-          trendDirection:
-            parseFloat(stockData.changePercent as any) >= 0 ? "up" : "down",
+          trendLabel: `${tickerChangePercent.toFixed(2)}%`,
+          trendDirection: tickerChangePercent >= 0 ? "up" : "down",
           trendSentiment:
-            parseFloat(stockData.changePercent as any) >= 0
-              ? "positive"
-              : "negative",
+            tickerChangePercent >= 0 ? "positive" : "negative",
         };
       });
 
@@ -1269,6 +1275,11 @@ export default function MetricGrid({
               <li>
                 <a href="/etf-watchlist.html" style={S.navLink}>
                   ETF Watchlist
+                </a>
+              </li>
+              <li>
+                <a href="/portfolio.html" style={S.navLink}>
+                  Portfolio
                 </a>
               </li>
             </ul>

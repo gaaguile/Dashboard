@@ -77,6 +77,11 @@ interface IefYieldData {
   label?: string;
 }
 
+const toNumber = (value: unknown, fallback = 0): number => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+
 export async function getStockData(symbol: string): Promise<StockData> {
   try {
     const response = await fetchFromApi(
@@ -84,21 +89,22 @@ export async function getStockData(symbol: string): Promise<StockData> {
     );
 
     const data = await response.json();
+    const fiftyTwoWeekHigh = toNumber(data.fiftyTwoWeekHigh, 0);
+    const fiftyTwoWeekLow = toNumber(data.fiftyTwoWeekLow, 0);
+
     return {
       symbol: data.symbol,
-      currentPrice: data.currentPrice || 0,
-      change: data.change || 0,
-      changePercent: (data.changePercent || 0).toFixed(2) as any,
-      weekToDateChangePercent: Number(data.weekToDateChangePercent || 0),
-      fiftyTwoWeekHigh: data.fiftyTwoWeekHigh || 0,
-      fiftyTwoWeekLow: data.fiftyTwoWeekLow || 0,
-      fiftyTwoWeekChange:
-        (data.fiftyTwoWeekHigh || 0) - (data.fiftyTwoWeekLow || 0) || 0,
-      fiftyTwoWeekChangePercent: (
-        (((data.fiftyTwoWeekHigh || 0) - (data.fiftyTwoWeekLow || 0)) /
-          (data.fiftyTwoWeekLow || 1)) *
-        100
-      ).toFixed(2) as any,
+      currentPrice: toNumber(data.currentPrice, 0),
+      change: toNumber(data.change, 0),
+      changePercent: toNumber(data.changePercent, 0),
+      weekToDateChangePercent: toNumber(data.weekToDateChangePercent, 0),
+      fiftyTwoWeekHigh,
+      fiftyTwoWeekLow,
+      fiftyTwoWeekChange: fiftyTwoWeekHigh - fiftyTwoWeekLow,
+      fiftyTwoWeekChangePercent:
+        fiftyTwoWeekLow === 0
+          ? 0
+          : ((fiftyTwoWeekHigh - fiftyTwoWeekLow) / fiftyTwoWeekLow) * 100,
     };
   } catch (error) {
     console.error(`Error fetching data for ${symbol}:`, error);
@@ -119,10 +125,10 @@ export async function getForexData(symbol: string): Promise<{
 
     const data = await response.json();
     return {
-      change: (data.change || 0).toFixed(4) as any,
-      changePercent: (data.changePercent || 0).toFixed(2) as any,
-      weekToDateChangePercent: Number(data.weekToDateChangePercent || 0),
-      lastPrice: data.lastPrice || 0,
+      change: toNumber(data.change, 0),
+      changePercent: toNumber(data.changePercent, 0),
+      weekToDateChangePercent: toNumber(data.weekToDateChangePercent, 0),
+      lastPrice: toNumber(data.lastPrice, 0),
     };
   } catch (error) {
     console.error(`Error fetching forex data for ${symbol}:`, error);
