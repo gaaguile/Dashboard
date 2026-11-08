@@ -23,8 +23,22 @@ async function getUfClpRateFromFile(): Promise<{ rate: number; updatedAt: string
 
     const rate = Number(parsed.rate ?? DEFAULT_UF_CLP_RATE);
     const updatedAt = parsed.updatedAt ?? new Date().toISOString();
+    const updatedAtDate = new Date(updatedAt);
+    const fileAgeMs = Date.now() - updatedAtDate.getTime();
+    const staleThresholdMs = 24 * 60 * 60 * 1000;
 
-    if (!Number.isFinite(rate) || rate <= 0) {
+    if (
+      !Number.isFinite(rate) ||
+      rate <= 0 ||
+      Number.isNaN(updatedAtDate.getTime())
+    ) {
+      throw new Error("Invalid UF rate data in local file");
+    }
+
+    if (fileAgeMs > staleThresholdMs) {
+      console.warn(
+        `UF CLP rate file is stale (${Math.round(fileAgeMs / (60 * 60 * 1000))} hours old); using default rate.`,
+      );
       return {
         rate: DEFAULT_UF_CLP_RATE,
         updatedAt: new Date().toISOString(),
@@ -33,7 +47,7 @@ async function getUfClpRateFromFile(): Promise<{ rate: number; updatedAt: string
 
     return { rate, updatedAt };
   } catch (error) {
-    console.warn("UF CLP rate file unavailable, using default.", error);
+    console.warn("UF CLP rate file unavailable or invalid, using default.", error);
     return {
       rate: DEFAULT_UF_CLP_RATE,
       updatedAt: new Date().toISOString(),
