@@ -11,7 +11,14 @@ const yahooFinance = new YahooFinance();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_UF_CLP_RATE = 38000;
+const DEFAULT_FONDO_A_RATE = 0;
 const UF_RATE_FILE = path.join(__dirname, "public", "portfolio", "uf-clp-rate.json");
+const FONDO_A_RATE_FILE = path.join(
+  __dirname,
+  "public",
+  "portfolio",
+  "fondo-a-rate.json",
+);
 
 async function getUfClpRateFromFile(): Promise<{ rate: number; updatedAt: string }> {
   try {
@@ -88,6 +95,94 @@ async function getUfClpRate(): Promise<{ rate: number; updatedAt: string }> {
   } catch (error) {
     console.warn("UF live feed unavailable, falling back to local file.", error);
     return getUfClpRateFromFile();
+  }
+}
+
+async function getFondoARateFromFile(): Promise<{ rate: number; updatedAt: string }> {
+  try {
+    const rawFile = await readFile(FONDO_A_RATE_FILE, "utf8");
+    const parsed = JSON.parse(rawFile) as {
+      rate?: number;
+      updatedAt?: string;
+    };
+
+    const rate = Number(parsed.rate ?? DEFAULT_FONDO_A_RATE);
+    const updatedAt = parsed.updatedAt ?? new Date().toISOString();
+    const updatedAtDate = new Date(updatedAt);
+
+    if (
+      !Number.isFinite(rate) ||
+      rate <= 0 ||
+      Number.isNaN(updatedAtDate.getTime())
+    ) {
+      throw new Error("Invalid Fondo A rate data in local file");
+    }
+
+    return { rate, updatedAt };
+  } catch (error) {
+    console.warn("Fondo A local rate unavailable or invalid.", error);
+    return {
+      rate: DEFAULT_FONDO_A_RATE,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+async function getFondoARate(): Promise<{ rate: number; updatedAt: string }> {
+  try {
+    const html = await fetchTextWithUserAgent(
+      "https://www.spensiones.cl/apps/valoresCuotaFondo/vcfAFP.php",
+    );
+
+    const dateMatch = html.match(/(\d{2})-(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Septiembre|Octubre|Noviembre|Diciembre)-(\d{4})/i);
+    const rateMatch = html.match(
+      /<td class="alignLeft">MODELO<\/td>\s*<td align="right">\s*([0-9\.]+,[0-9]{2})\s*&nbsp;<\/td>/i,
+    );
+
+    if (!rateMatch?.[1]) {
+      throw new Error("MODELO quota value not found in Superintendencia page");
+    }
+
+    const rawRate = rateMatch[1];
+    const normalizedRate = rawRate.replace(".", "").replace(",", ".");
+    const rate = Number(normalizedRate);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Invalid MODELO quota value parsed from page");
+    }
+
+    const monthMap: Record<string, string> = {
+      Enero: "01",
+      Febrero: "02",
+      Marzo: "03",
+      Abril: "04",
+      Mayo: "05",
+      Junio: "06",
+      Julio: "07",
+      Agosto: "08",
+      Septiembre: "09",
+      Octubre: "10",
+      Noviembre: "11",
+      Diciembre: "12",
+    };
+
+    let updatedAt = new Date().toISOString();
+    if (dateMatch) {
+      const [, day, monthName, year] = dateMatch;
+      const month = monthMap[monthName];
+      if (month) {
+        updatedAt = new Date(
+          `${year}-${month}-${day}T00:00:00-03:00`,
+        ).toISOString();
+      }
+    }
+
+    return { rate, updatedAt };
+  } catch (error) {
+    console.warn(
+      "Fondo A live quota unavailable, falling back to local file.",
+      error,
+    );
+    return getFondoARateFromFile();
   }
 }
 
@@ -467,6 +562,7 @@ app.get("/api/portfolio", async (_req, res) => {
     };
 
     const ufRate = await getUfClpRate();
+    const fondoARate = await getFondoARate();
     const usdClpQuote = await yahooFinance.quote("USDCLP=X");
     const usdClpRate = Number(usdClpQuote.regularMarketPrice ?? 930);
 
@@ -477,6 +573,11 @@ app.get("/api/portfolio", async (_req, res) => {
 
         switch (asset.currency) {
           case "CLP": {
+            if (asset.id === "fondo-a") {
+              marketValueClp = quantity * fondoARate.rate;
+              break;
+            }
+
             marketValueClp = quantity;
             break;
           }
@@ -525,6 +626,8 @@ app.get("/api/portfolio", async (_req, res) => {
         usdClpRate,
         ufClpRate: ufRate.rate,
         ufRateUpdatedAt: ufRate.updatedAt,
+        fondoARate: fondoARate.rate,
+        fondoARateUpdatedAt: fondoARate.updatedAt,
       },
       rows: sortedRows,
     });

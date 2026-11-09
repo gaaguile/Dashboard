@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portfolio</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page-bg: #020617;
+        --panel-bg: rgba(15, 23, 42, 0.88);
+        --panel-border: rgba(148, 163, 184, 0.2);
+        --panel-shadow: 0 22px 60px rgba(2, 6, 23, 0.45);
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --accent: #22d3ee;
+        --accent-strong: #67e8f9;
+        --success: #22c55e;
+        --danger: #f87171;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text-primary);
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(34, 211, 238, 0.16),
+            transparent 34%
+          ),
+          linear-gradient(180deg, #0f172a 0%, var(--page-bg) 100%);
+      }
+
+      .shell {
+        width: min(1280px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .panel {
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        box-shadow: var(--panel-shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 24px;
+        margin-bottom: 18px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        font-weight: 700;
+      }
+
+      .subtitle {
+        margin: 8px 0 0;
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+      }
+
+      .nav-list {
+        list-style: none;
+        display: flex;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        flex-wrap: wrap;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 999px;
+        text-decoration: none;
+        font-weight: 700;
+        color: var(--text-primary);
+        background: rgba(15, 23, 42, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .nav-link.active {
+        color: #0f172a;
+        background: linear-gradient(
+          135deg,
+          var(--accent-strong),
+          var(--accent)
+        );
+        border-color: rgba(34, 211, 238, 0.45);
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .summary-card {
+        background: rgba(15, 23, 42, 0.52);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .summary-label {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 8px;
+      }
+
+      .summary-value {
+        font-size: clamp(1.15rem, 2vw, 1.8rem);
+        font-weight: 700;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(15, 23, 42, 0.38);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        text-align: left;
+      }
+
+      th {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(15, 23, 42, 0.8);
+      }
+
+      .sort-button {
+        appearance: none;
+        background: transparent;
+        border: none;
+        color: inherit;
+        font: inherit;
+        letter-spacing: inherit;
+        text-transform: inherit;
+        cursor: pointer;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      td {
+        color: var(--text-primary);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
+      .status {
+        color: var(--text-secondary);
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+      }
+
+      .muted {
+        color: var(--text-secondary);
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100% - 20px, 100%);
+          padding-top: 18px;
+        }
+
+        .header,
+        .content {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+
+        table {
+          display: block;
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel header">
+        <div>
+          <h1 class="title">Portfolio</h1>
+          <p class="subtitle">Summary of holdings converted to CLP.</p>
+        </div>
+        <nav aria-label="Primary navigation">
+          <ul class="nav-list">
+            <li><a class="nav-link" href="/">Dashboard</a></li>
+            <li><a class="nav-link" href="/etf-watchlist.html">ETF Watchlist</a></li>
+            <li><a class="nav-link active" href="/portfolio.html" aria-current="page">Portfolio</a></li>
+          </ul>
+        </nav>
+      </section>
+
+      <section class="panel content">
+        <div id="status" class="status">Loading portfolio data...</div>
+        <div id="summary" class="summary" hidden></div>
+        <div id="table-wrap" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Name</th>
+                <th>Quantity</th>
+                <th>Currency</th>
+                <th>
+                  <button type="button" class="sort-button" id="sort-market-value-btn">
+                    Market Value (CLP)
+                    <span id="sort-market-value-indicator">↓</span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="portfolio-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const clpCurrency = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      });
+
+      function formatClp(value) {
+        if (!Number.isFinite(value)) return "N/A";
+        return clpCurrency.format(value);
+      }
+
+      const state = {
+        sortDirection: "desc",
+      };
+
+      function formatUpdatedAt(value) {
+        if (!value) return "N/A";
+        try {
+          const date = new Date(value);
+          return new Intl.DateTimeFormat("en-US", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "America/Santiago",
+          }).format(date);
+        } catch (error) {
+          return value;
+        }
+      }
+
+      function applySort(rows) {
+        const sorted = [...rows];
+        sorted.sort((a, b) => {
+          const delta = Number(b.marketValueClp ?? 0) - Number(a.marketValueClp ?? 0);
+          return state.sortDirection === "desc" ? delta : -delta;
+        });
+        return sorted;
+      }
+
+      function renderRows(rows) {
+        const body = document.getElementById("portfolio-body");
+        const sortedRows = applySort(rows);
+        body.dataset.rows = JSON.stringify(sortedRows);
+        body.innerHTML = sortedRows
+          .map(
+            (row) => `
+              <tr>
+                <td>${row.symbol}</td>
+                <td>${row.name}</td>
+                <td>${Number(row.quantity).toLocaleString("en-US")}</td>
+                <td>${row.currency}</td>
+                <td>${formatClp(Number(row.marketValueClp))}</td>
+              </tr>
+            `,
+          )
+          .join("");
+
+        const indicator = document.getElementById("sort-market-value-indicator");
+        indicator.textContent = state.sortDirection === "desc" ? "↓" : "↑";
+      }
+
+      function renderSummary(summary) {
+        const container = document.getElementById("summary");
+        const cards = [
+          { label: "Total market value", value: formatClp(summary.totalMarketValueClp) },
+          { label: "USD / CLP", value: summary.usdClpRate ? `US$1 = ${summary.usdClpRate.toFixed(0)} CLP` : "N/A" },
+          { label: "UF / CLP", value: summary.ufClpRate ? `1 UF = ${summary.ufClpRate.toFixed(0)} CLP` : "N/A" },
+          { label: "Fondo A cuota", value: summary.fondoARate ? `${Number(summary.fondoARate).toLocaleString("en-US", { maximumFractionDigits: 2 })} CLP` : "N/A" },
+          { label: "UF update", value: summary.ufRateUpdatedAt ? formatUpdatedAt(summary.ufRateUpdatedAt) : "N/A" },
+        ];
+
+        container.innerHTML = cards
+          .map(
+            (card) => `
+              <div class="summary-card">
+                <span class="summary-label">${card.label}</span>
+                <div class="summary-value">${card.value}</div>
+              </div>
+            `,
+          )
+          .join("");
+        container.hidden = false;
+      }
+
+      async function loadPortfolio() {
+        const status = document.getElementById("status");
+        const tableWrap = document.getElementById("table-wrap");
+
+        try {
+          const response = await fetch("/api/portfolio");
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          const rows = Array.isArray(data.rows) ? data.rows : [];
+
+          renderRows(rows);
+          renderSummary(data.summary || {});
+          tableWrap.hidden = false;
+          status.textContent = `Loaded ${rows.length} asset${rows.length === 1 ? "" : "s"}.`;
+        } catch (error) {
+          console.error("Error loading portfolio:", error);
+          status.textContent = "Unable to load portfolio data right now.";
+        }
+      }
+
+      document.getElementById("sort-market-value-btn").addEventListener("click", () => {
+        state.sortDirection = state.sortDirection === "desc" ? "asc" : "desc";
+        const rows = JSON.parse(document.getElementById("portfolio-body").dataset.rows || "[]");
+        renderRows(rows);
+      });
+
+      loadPortfolio();
+    </script>
+  </body>
+</html>

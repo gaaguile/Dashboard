@@ -321,6 +321,7 @@
           { label: "Total market value", value: formatClp(summary.totalMarketValueClp) },
           { label: "USD / CLP", value: summary.usdClpRate ? `US$1 = ${summary.usdClpRate.toFixed(0)} CLP` : "N/A" },
           { label: "UF / CLP", value: summary.ufClpRate ? `1 UF = ${summary.ufClpRate.toFixed(0)} CLP` : "N/A" },
+          { label: "Fondo A cuota", value: summary.fondoARate ? `${Number(summary.fondoARate).toLocaleString("en-US", { maximumFractionDigits: 2 })} CLP` : "N/A" },
           { label: "UF update", value: summary.ufRateUpdatedAt ? formatUpdatedAt(summary.ufRateUpdatedAt) : "N/A" },
         ];
 
