@@ -1,0 +1,69 @@
+{
+  "routes": [
+    {
+      "routePath": "/api/etf-watchlist",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/etf-watchlist.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/etf-watchlist-refresh",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/etf-watchlist-refresh.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/fed-meeting",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/fed-meeting.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/fed-rate",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/fed-rate.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/forex",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/forex.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/ief-yield",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/ief-yield.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/ivv-weekly-net-return",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/ivv-weekly-net-return.js:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/stock",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/stock.js:onRequest"
+      ]
+    }
+  ],
+  "baseURL": "/"
+}

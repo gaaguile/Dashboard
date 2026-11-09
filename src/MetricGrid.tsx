@@ -760,7 +760,7 @@ interface MetricGridProps {
 
 export default function MetricGrid({
   metrics: metricsProps = SAMPLE_METRICS,
-  title = "Dashboard for Gabriel Tekken Trading Strategies",
+  title = "Gabriel Tekken Xerxes John Connor",
   subtitle = "Last updated just now",
   onRefresh: onRefreshProp,
   onLogout: onLogoutProp,
