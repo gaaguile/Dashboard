@@ -883,7 +883,7 @@ async function onRequest8(context) {
 }
 __name(onRequest8, "onRequest");
 
-// ../.wrangler/tmp/pages-F9punC/functionsRoutes-0.7510509094229183.mjs
+// ../.wrangler/tmp/pages-KGmKBy/functionsRoutes-0.6930462337223914.mjs
 var routes = [
   {
     routePath: "/api/etf-watchlist",
